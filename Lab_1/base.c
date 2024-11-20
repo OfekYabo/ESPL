@@ -66,12 +66,17 @@ int main(int argc, char **argv){
   /* TODO: Test your code */
   int base_len = 5;
   char arr1[base_len];
+
   char* arr2 = map(arr1, base_len, my_get);
+  printf("arr2: %s\n", arr2);
   char* arr3 = map(arr2, base_len, dprt);
   char* arr4 = map(arr3, base_len, xprt);
   char* arr5 = map(arr4, base_len, encrypt);
+
   free(arr2);
   free(arr3);
   free(arr4);
   free(arr5);
+
+  return 0;
 }
