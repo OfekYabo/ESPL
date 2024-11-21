@@ -2,7 +2,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#define Input_Len 1
+#define Array_len 5
 
+//Task 2 functions
 char* map(char *array, int array_length, char (*f) (char)) {
   char* mapped_array = (char*)(malloc(array_length*sizeof(char)));
   /* TODO: Complete during task 2.a */
@@ -61,22 +64,56 @@ char dprt(char c) {
   return c;
 }
 
+//Task 3
+typedef struct {
+    char* name;
+    char (*fun)(char);
+} fun_desc;
 
-// int main(int argc, char **argv){
-//   /* TODO: Test your code */
-//   int base_len = 5;
-//   char arr1[base_len];
+int main(int argc, char **argv) {
+    char array[Array_len] = "";
+    char* carray = array;
+    fun_desc Menu_Funcs[] = {
+        {"my_get", my_get},
+        {"cprt", cprt},
+        {"encrypt", encrypt},
+        {"decrypt", decrypt},
+        {"xprt", xprt},
+        {"dprt", dprt},
+        {NULL, NULL}
+    };
 
-//   char* arr2 = map(arr1, base_len, my_get);
-//   printf("arr2: %s\n", arr2);
-//   char* arr3 = map(arr2, base_len, dprt);
-//   char* arr4 = map(arr3, base_len, xprt);
-//   char* arr5 = map(arr4, base_len, encrypt);
+    int bound = 0;
+    while (Menu_Funcs[bound].name != NULL) {
+        bound++;
+    }
 
-//   free(arr2);
-//   free(arr3);
-//   free(arr4);
-//   free(arr5);
+    //my code, advised  by copilot to improve it
 
-//   return 0;
-// }
+    char option_str[Input_Len + 2]; //input + newline + null terminator
+    while (1) {
+        printf("Select operation from the following menu by number (CTR+D to Exit) :\n");
+        for (int i = 0; i < bound; i++) {
+            printf("%i) %s\n", i, Menu_Funcs[i].name);
+        }
+        printf("Option : ");
+
+        if (fgets(option_str, sizeof(option_str), stdin) == NULL) {
+            break;
+        }
+
+        char *endptr;
+        int option = strtol(option_str, &endptr, 10);
+        if (endptr == option_str || *endptr != '\n') {
+            printf("Invalid option\n");
+            continue;
+        };
+
+        if (option >= 0 && option < bound) {
+            printf("Whithin bounds\n");
+            carray = map(carray, Array_len, Menu_Funcs[option].fun);
+        } else {
+            printf("Not within bounds\n");
+        }
+    }
+}
