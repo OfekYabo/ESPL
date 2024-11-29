@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define Input_Len 1
+#define Input_Len 10
 #define Array_len 5
 
 //Task 2 functions
@@ -71,8 +71,7 @@ typedef struct {
 } fun_desc;
 
 int main(int argc, char **argv) {
-    char array[Array_len] = "";
-    char* carray = array;
+    char* carray = (char*)calloc(Array_len, sizeof(char));
     fun_desc Menu_Funcs[] = {
         {"my_get", my_get},
         {"cprt", cprt},
@@ -106,14 +105,18 @@ int main(int argc, char **argv) {
         int option = strtol(option_str, &endptr, 10);
         if (endptr == option_str || *endptr != '\n') {
             printf("Invalid option\n");
+            //fflush();
             continue;
         };
 
         if (option >= 0 && option < bound) {
             printf("Whithin bounds\n");
-            carray = map(carray, Array_len, Menu_Funcs[option].fun);
+            char* carray2 = map(carray, Array_len, Menu_Funcs[option].fun);
+            free(carray);
+            carray = carray2;
         } else {
             printf("Not within bounds\n");
         }
     }
+    free(carray);
 }
