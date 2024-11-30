@@ -1,26 +1,17 @@
 # Compiler
 CC = gcc
 
-# Assembler
-AS = nasm
-
 # Compiler flags
 CFLAGS = -m32 -Wall -Wextra -std=c99
 
-# Assembler flags
-ASFLAGS = -f elf
-
 # Target executable
-TARGET = main
+TARGET = encoder
 
 # Source files
-SRCS = main.c numbers.c
-
-# Assembly files
-ASM_SRCS = ass.s
+SRCS = encoder.c
 
 # Object files
-OBJS = $(SRCS:.c=.o) $(ASM_SRCS:.s=.o)
+OBJS = $(SRCS:.c=.o)
 
 # Default target
 all: $(TARGET)
@@ -32,10 +23,6 @@ $(TARGET): $(OBJS)
 # Compile C source files into object files
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
-
-# Assemble assembly source files into object files
-%.o: %.s
-	$(AS) $(ASFLAGS) $< -o $@
 
 # Clean up build files
 clean:
