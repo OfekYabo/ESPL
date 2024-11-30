@@ -1,3 +1,6 @@
 ABCDEZ
 12#<
+11111
+00000
+aaaaaaa
 ^D
