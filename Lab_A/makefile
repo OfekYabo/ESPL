@@ -13,6 +13,9 @@ SRCS = encoder.c
 # Object files
 OBJS = $(SRCS:.c=.o)
 
+# Log file for stderr
+LOGFILE = error.log
+
 # Default target
 all: $(TARGET)
 
@@ -24,9 +27,13 @@ $(TARGET): $(OBJS)
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Clean up build files
+# Run the program with arguments and redirect stderr to a log file
+run: $(TARGET)
+	./$(TARGET) $(ARGS) 2> $(LOGFILE)
+
+# Clean up build files and log file
 clean:
-	rm -f $(TARGET) $(OBJS)
+	rm -f $(TARGET) $(OBJS) $(LOGFILE)
 
 # Phony targets
-.PHONY: all clean
+.PHONY: all clean run
