@@ -1,5 +1,3 @@
-#helped by copilot
-
 # Compiler
 CC = gcc
 
@@ -7,10 +5,10 @@ CC = gcc
 CFLAGS = -m32 -Wall -Wextra -std=c99
 
 # Target executable
-TARGET = menu
+TARGET = encoder
 
 # Source files
-SRCS = menu_map.c
+SRCS = encoder.c
 
 # Object files
 OBJS = $(SRCS:.c=.o)
@@ -22,7 +20,7 @@ all: $(TARGET)
 $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -o $(TARGET) $(OBJS)
 
-# Compile source files into object files
+# Compile C source files into object files
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
