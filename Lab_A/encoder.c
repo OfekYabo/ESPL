@@ -21,6 +21,7 @@ int encode_subtract(int key_value, char c) {
 
 int (*encode_mode)(int key_value, char c) = encode_add;
 
+//my code helped by copilot
 char encode(char c) {
     int key_value = encoding_key[key_index] - '0';
 
@@ -36,6 +37,7 @@ char encode(char c) {
     return c;
 }
 
+//my code helped by copilot
 void handle_arguments(int argc, char **argv) {
     for (int i = 1; i < argc; i++){
         if (strcmp(argv[i], "-D") == 0){
@@ -52,6 +54,18 @@ void handle_arguments(int argc, char **argv) {
             key_len = strlen(encoding_key);
             key_index = 0;
             encode_mode = encode_subtract;
+        } else if (strncmp(argv[i], "-i", 2) == 0) {
+            infile = fopen(argv[i] + 2, "r");
+            if (infile == NULL) {
+                fprintf(stderr, "Error opening input file: %s\n", argv[i] + 2);
+                exit(1);
+            }
+        } else if (strncmp(argv[i], "-o", 2) == 0) {
+            outfile = fopen(argv[i] + 2, "w");
+            if (outfile == NULL) {
+                fprintf(stderr, "Error opening output file: %s\n", argv[i] + 2);
+                exit(1);
+            }
         }
     }
     if (debug_mode == 1) {
@@ -61,12 +75,17 @@ void handle_arguments(int argc, char **argv) {
     }
 }
 
+//my code
 void init_files() {
     infile = stdin;
     outfile = stdout;
 }
 
+//my code helped by copilot
 void close_files() {
+    if (infile != stdin) {
+        fclose(infile);
+    }
     if (outfile != stdout) {
         fclose(outfile);
     } else {
@@ -74,6 +93,7 @@ void close_files() {
     }
 }
 
+//my code helped by copilot
 int main(int argc, char **argv) {
     init_files();
     handle_arguments(argc, argv);
