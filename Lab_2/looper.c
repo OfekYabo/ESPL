@@ -6,17 +6,18 @@
 
 void handler(int sig)
 {
-	printf("\nRecieved Signal : %s\n", strsignal(sig));
-	if (sig == SIGTSTP)
-	{
-		signal(SIGTSTP, SIG_DFL);
-	}
-	else if (sig == SIGCONT)
-	{
-		signal(SIGCONT, SIG_DFL);
-	}
-	signal(sig, SIG_DFL);
-	raise(sig);
+	printf("Received signal: %s\n", strsignal(sig));
+
+    // Propagate the signal to the default handler
+    signal(sig, SIG_DFL);
+    raise(sig);
+
+    // Reinstate custom handlers
+    if (sig == SIGCONT) {
+        signal(SIGTSTP, handler);
+    } else if (sig == SIGTSTP) {
+        signal(SIGCONT, handler);
+    }
 }
 
 int main(int argc, char **argv)
