@@ -147,28 +147,32 @@ void execute(cmdLine *pCmdLine) {
 
     // Handle input redirection
     if (pCmdLine->inputRedirect) {
-        // Close standard input
-        close(STDIN_FILENO);
-        // Open the input file, which will now be assigned to STDIN_FILENO
         inputFd = open(pCmdLine->inputRedirect, O_RDONLY);
         if (inputFd == -1) {
             perror("open inputRedirect error");
             _exit(1);
         }
-        // No need to close inputFd here, as it is now STDIN_FILENO
+        if (dup2(inputFd, STDIN_FILENO) == -1) {
+            perror("dup2 inputRedirect error");
+            close(inputFd); // Ensure the file descriptor is closed
+            _exit(1);
+        }
+        close(inputFd);
     }
 
     // Handle output redirection
     if (pCmdLine->outputRedirect) {
-        // Close standard output
-        close(STDOUT_FILENO);
-        // Open the output file, which will now be assigned to STDOUT_FILENO
         outputFd = open(pCmdLine->outputRedirect, O_WRONLY | O_CREAT | O_TRUNC, 0644);
         if (outputFd == -1) {
             perror("open outputRedirect error");
             _exit(1);
         }
-        // No need to close outputFd here, as it is now STDOUT_FILENO
+        if (dup2(outputFd, STDOUT_FILENO) == -1) {
+            perror("dup2 outputRedirect error");
+            close(outputFd); // Ensure the file descriptor is closed
+            _exit(1);
+        }
+        close(outputFd);
     }
 
     if (execvp(pCmdLine->arguments[0], pCmdLine->arguments) == -1) {
