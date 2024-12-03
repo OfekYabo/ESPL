@@ -20,7 +20,9 @@ void handler(int sig)
     }
 }
 
-int main(int argc, char **argv){
+int main(int argc, char **argv)
+{
+
 	printf("Starting the program\n");
 	signal(SIGINT, handler);
 	signal(SIGTSTP, handler);
