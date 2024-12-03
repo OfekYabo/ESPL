@@ -11,6 +11,7 @@
 
 #define MAX_INPUT_SIZE 2048
 
+//my code, helped by copilot
 void execute(cmdLine *pCmdLine);
 
 int main(int argc, char **argv) {
@@ -31,7 +32,7 @@ int main(int argc, char **argv) {
         if (getcwd(cwd, sizeof(cwd)) != NULL) {
             printf("%s$ ", cwd);
         } else {
-            perror("getcwd() error"); //print error to stderr and the last error
+            perror("getcwd() error"); //print to stderr the last error
             return 1;
         }
         // Read user input
@@ -44,12 +45,12 @@ int main(int argc, char **argv) {
         if (parsedCmdLine == NULL) {
             continue; // If parsing fails, continue to the next iteration
         }
-        // Check for "quit" command
+        // Check "quit" command
         if (strcmp(parsedCmdLine->arguments[0], "quit") == 0) {
             freeCmdLines(parsedCmdLine);
             break; // Exit the loop and terminate the shell
         }
-        // Check for "cd" command
+        // Check "cd" command
         if (strcmp(parsedCmdLine->arguments[0], "cd") == 0) {
             if (parsedCmdLine->argCount < 2) {
                 fprintf(stderr, "cd: missing argument\n");
@@ -68,7 +69,7 @@ int main(int argc, char **argv) {
                 fprintf(stderr, "stop: missing argument\n");
             } else {
                 pid_t pid = atoi(parsedCmdLine->arguments[1]);
-                if (kill(pid, SIGSTOP) == -1) {
+                if (kill(pid, SIGKILL) == -1) {
                     perror("stop error");
                 }
             }
@@ -103,8 +104,8 @@ int main(int argc, char **argv) {
             freeCmdLines(parsedCmdLine);
             continue; // Skip forking and continue to the next iteration
         }
-        
-        // Fork a new process
+
+        // Fork a new process to execute cmd line task
         pid_t pid = fork();
         if (pid == -1) {
             perror("fork() error");
@@ -123,10 +124,8 @@ int main(int argc, char **argv) {
                 waitpid(pid, NULL, 0); // Wait for the child process to complete if blocking
             }
         }       
-
         freeCmdLines(parsedCmdLine);
     }
-
     return 0;
 }
 
@@ -136,28 +135,24 @@ void execute(cmdLine *pCmdLine) {
 
     // Handle input redirection
     if (pCmdLine->inputRedirect) {
-        // Close standard input
-        close(STDIN_FILENO);
-        // Open the input file, which will now be assigned to STDIN_FILENO
+        close(STDIN_FILENO);//free 0
+        // Open the input file, will assign to 0
         inputFd = open(pCmdLine->inputRedirect, O_RDONLY);
         if (inputFd == -1) {
             perror("open inputRedirect error");
             _exit(1);
         }
-        // No need to close inputFd here, as it is now STDIN_FILENO
     }
 
     // Handle output redirection
     if (pCmdLine->outputRedirect) {
-        // Close standard output
-        close(STDOUT_FILENO);
-        // Open the output file, which will now be assigned to STDOUT_FILENO
+        close(STDOUT_FILENO);// free 1
+        // Open the output file, will assign to 1
         outputFd = open(pCmdLine->outputRedirect, O_WRONLY | O_CREAT | O_TRUNC, 0644);
         if (outputFd == -1) {
             perror("open outputRedirect error");
             _exit(1);
         }
-        // No need to close outputFd here, as it is now STDOUT_FILENO
     }
 
     if (execvp(pCmdLine->arguments[0], pCmdLine->arguments) == -1) {

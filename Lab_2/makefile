@@ -1,3 +1,4 @@
+# helped by copilot
 # Compiler
 CC = gcc
 
@@ -37,7 +38,7 @@ $(TARGET_PIPE): $(OBJS_PIPE)
 
 # Run myshell with arguments and redirect error output
 run_myshell: $(TARGET_SHELL)
-	./$(TARGET_SHELL) $(ARGS) 2> $(ERROR_LOG)
+	./$(TARGET_SHELL) $(ARGS) 2> $(ERROR_SHELL_LOG)
 
 # Run mypipe and redirect error output
 run_mypipe: $(TARGET_PIPE)
@@ -45,7 +46,7 @@ run_mypipe: $(TARGET_PIPE)
 
 # Clean up object files and executable
 clean:
-	rm -f $(OBJS_SHELL) $(TARGET_SHELL) $(ERROR_LOG)
+	rm -f $(OBJS_SHELL) $(TARGET_SHELL) $(ERROR_SHELL_LOG) $(ERROR_PIPE_LOG)
 
 # Phony targets
 .PHONY: all myshell run clean
