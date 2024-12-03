@@ -46,7 +46,6 @@ run_mypipe: $(TARGET_PIPE)
 
 # Clean up object files and executable
 clean:
-	rm -f $(OBJS_SHELL) $(TARGET_SHELL) $(ERROR_SHELL_LOG) $(ERROR_PIPE_LOG)
-
+	rm -f $(OBJS_SHELL) $(TARGET_SHELL) $(ERROR_SHELL_LOG) $(OBJS_PIPE) $(TARGET_PIPE) $(ERROR_PIPE_LOG)
 # Phony targets
 .PHONY: all myshell run clean

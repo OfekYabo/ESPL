@@ -11,7 +11,7 @@ int write_fd;
 void childExecute();
 void parentExecute();
 
-
+// my code, helped by copilot
 int main() {
     // Create the pipe
     if (pipe(pipefd) == -1) {
