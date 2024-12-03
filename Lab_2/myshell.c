@@ -62,11 +62,6 @@ int main(int argc, char **argv) {
             continue; // Skip forking and continue to the next iteration
         }
 
-
-
-
-
-
         // Check for "stop" command
         if ((strcmp(parsedCmdLine->arguments[0], "stop") == 0)) {
             if (parsedCmdLine->argCount < 2) {
@@ -108,13 +103,7 @@ int main(int argc, char **argv) {
             freeCmdLines(parsedCmdLine);
             continue; // Skip forking and continue to the next iteration
         }
-
-
-
-
-
-
-
+        
         // Fork a new process
         pid_t pid = fork();
         if (pid == -1) {
