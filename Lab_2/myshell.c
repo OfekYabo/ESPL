@@ -6,12 +6,12 @@
 #include <signal.h>
 #include <string.h>
 #include <stdlib.h>
+#include <fcntl.h>
 #include "LineParser.h"
 
 #define MAX_INPUT_SIZE 2048
 
 void execute(cmdLine *pCmdLine);
-void sendSignal(int signal);
 
 int main(int argc, char **argv) {
     char cwd[PATH_MAX];
@@ -25,7 +25,7 @@ int main(int argc, char **argv) {
             debug = 1;
         }
     }
-    
+
     while (1) {
         // Get the current working directory
         if (getcwd(cwd, sizeof(cwd)) != NULL) {
@@ -142,6 +142,39 @@ int main(int argc, char **argv) {
 }
 
 void execute(cmdLine *pCmdLine) {
+    int inputFd = -1;
+    int outputFd = -1;
+
+    // Handle input redirection
+    if (pCmdLine->inputRedirect) {
+        inputFd = open(pCmdLine->inputRedirect, O_RDONLY);
+        if (inputFd == -1) {
+            perror("open inputRedirect error");
+            _exit(1);
+        }
+        if (dup2(inputFd, STDIN_FILENO) == -1) {
+            perror("dup2 inputRedirect error");
+            close(inputFd); // Ensure the file descriptor is closed
+            _exit(1);
+        }
+        close(inputFd);
+    }
+
+    // Handle output redirection
+    if (pCmdLine->outputRedirect) {
+        outputFd = open(pCmdLine->outputRedirect, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        if (outputFd == -1) {
+            perror("open outputRedirect error");
+            _exit(1);
+        }
+        if (dup2(outputFd, STDOUT_FILENO) == -1) {
+            perror("dup2 outputRedirect error");
+            close(outputFd); // Ensure the file descriptor is closed
+            _exit(1);
+        }
+        close(outputFd);
+    }
+
     if (execvp(pCmdLine->arguments[0], pCmdLine->arguments) == -1) {
         perror("execvp() error");
         _exit(1); // Exit the child process abnormally
