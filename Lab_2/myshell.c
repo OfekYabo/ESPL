@@ -25,7 +25,7 @@ int main(int argc, char **argv) {
             debug = 1;
         }
     }
-
+    
     while (1) {
         // Get the current working directory
         if (getcwd(cwd, sizeof(cwd)) != NULL) {
