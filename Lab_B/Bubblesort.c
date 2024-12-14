@@ -7,14 +7,15 @@ void bubbleSort(int numbers[], int array_size)
     int *temp;
     for (i = (array_size - 1); i > 0; i--)
     {
-        for (j = 1; j < i; j++)
+        for (j = 1; j <= i; j++)// fix: <= instead of <
         {
             if (numbers[j - 1] > numbers[j])
             {
-                temp = (int *)malloc(sizeof(int *));
+                temp = (int *)malloc(sizeof(int));// fix: change from int* to int
                 *temp = numbers[j - 1];
                 numbers[j - 1] = numbers[j];
                 numbers[j] = *temp;
+                free(temp); // add free temp
             }
         }
     }
@@ -27,7 +28,7 @@ int main(int argc, char **argv)
     int *numbers = (int *)calloc(n, sizeof(int));
 
     printf("Original array:");
-    for (i = 0; i <= n; ++i)
+    for (i = 0; i < n; ++i) // fix: < instead of <=
     {
         printf(" %s", arr[i]);
         numbers[i] = atoi(arr[i]);
@@ -41,4 +42,5 @@ int main(int argc, char **argv)
         printf(" %d", numbers[i]);
     printf("\n");
     return 0;
+    free(numbers);  // add free numbers 
 }
