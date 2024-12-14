@@ -41,6 +41,6 @@ int main(int argc, char **argv)
     for (i = 0; i < n; ++i)
         printf(" %d", numbers[i]);
     printf("\n");
-    return 0;
     free(numbers);  // add free numbers 
+    return 0;
 }
