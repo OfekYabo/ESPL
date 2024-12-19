@@ -168,6 +168,7 @@ void neutralize_virus(char *fileName, int signatureOffset) {
     // Write the RET instruction (0xC3)
     unsigned char retInstruction = 0xC3;
     fwrite(&retInstruction, 1, 1, file);
+    fprintf(globalOutfile, "Virus neutralized\n");
     fclose(file);
 }
 
