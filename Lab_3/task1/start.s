@@ -92,7 +92,7 @@ parse_args: ; void parse_args(int argc, char *argv[])
     parse_args_loop:
         ; Check if there are no more arguments
         cmp ecx, 0
-        jmp return
+        je return
 
         push esi                ; save argv
         push ecx                ; save argc
@@ -217,7 +217,7 @@ print_args: ; void print_args(int argc, char *argv[])
     print_args_loop:
         ; Check if there are no more arguments
         cmp ecx, 0
-        jmp return
+        je return
         
         push esi                ; save argv
         push ecx                ; save argc
