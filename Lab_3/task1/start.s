@@ -6,6 +6,7 @@ section .data
     sys_open equ 5
     stdin equ 0
     stdout equ 1
+    stderr equ 2
     O_RDONLY equ 0
     O_WRONLY equ 1
     O_CREAT equ 64
@@ -14,6 +15,11 @@ section .data
     Outfile dd stdout
     IntputFile_String db "-i", 0
     OutputFile_String db "-o", 0
+    debug_msg db "Debug: ", 0
+    debug_open_input db "Open input file: ", 0
+    debug_open_output db "Open output file: ", 0
+    debug_read db "Read: ", 0
+    debug_write db "Write: ", 0
 
 section .bss
     buffer resb 1
@@ -72,7 +78,7 @@ main: ; int main(int argc, char *argv[])
 
     push esi                ; pass argv to print_args
     push ecx                ; pass argc to print_args
-    ;call parse_args         ; parse command-line arguments
+    call parse_args         ; parse command-line arguments
     call print_args         ; print all command-line arguments
     add esp, 8              ; clean arguments from the stack
 
@@ -195,6 +201,13 @@ open_input_file: ; void open_input_file(char *filename)
     mov ecx, O_RDONLY      ; read-only mode
     int 0x80               ; call kernel
     mov [Infile], eax      ; store the file descriptor in Infile
+
+    ; Debug print
+    push eax
+    push debug_open_input
+    call print_debug
+    add esp, 8
+
     ret
 
 open_output_file: ; void open_output_file(char *filename)
@@ -206,6 +219,30 @@ open_output_file: ; void open_output_file(char *filename)
     mov edx, 0666          ; file permissions
     int 0x80               ; call kernel
     mov [Outfile], eax     ; store the file descriptor in Outfile
+
+    ; Debug print
+    push eax
+    push debug_open_output
+    call print_debug
+    add esp, 8
+
+    ret
+
+print_debug: ; void print_debug(int value, char *msg)
+; Print a debug message with a value to stderr
+
+    mov eax, sys_write      ; sys_write
+    mov ebx, stderr         ; stderr
+    mov ecx, [esp + 4]      ; pointer to the message
+    mov edx, 7              ; length of the message
+    int 0x80                ; call kernel
+
+    mov eax, sys_write      ; sys_write
+    mov ebx, stderr         ; stderr
+    mov ecx, [esp + 8]      ; pointer to the value
+    mov edx, 4              ; length of the value
+    int 0x80                ; call kernel
+
     ret
 
 print_args: ; void print_args(int argc, char *argv[])
@@ -274,6 +311,12 @@ encode_input: ; void encode_input()
     mov edx, 1              ; length = 1
     int 0x80                ; call kernel
 
+    ; Debug print
+    push eax
+    push debug_read
+    call print_debug
+    add esp, 8
+
     ; Check if the input is null
     cmp eax, 0
     je return
@@ -302,6 +345,13 @@ encode_input: ; void encode_input()
         mov edx, 1              ; length = 1
         int 0x80                ; call kernel
 
+
+        ; Debug print
+        push eax
+        push debug_write
+        call print_debug
+        add esp, 8
+        
         jmp encode_input
 
 return:
