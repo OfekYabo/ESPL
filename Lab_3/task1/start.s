@@ -72,7 +72,7 @@ main: ; int main(int argc, char *argv[])
 
     push esi                ; pass argv to print_args
     push ecx                ; pass argc to print_args
-    call parse_args         ; parse command-line arguments
+    ;call parse_args         ; parse command-line arguments
     call print_args         ; print all command-line arguments
     add esp, 8              ; clean arguments from the stack
 
