@@ -1,7 +1,31 @@
+section .data
+    newline db 0xA
+    sys_exit equ 1
+    sys_read equ 3
+    sys_write equ 4
+    sys_open equ 5
+    stdin equ 0
+    stdout equ 1
+    O_RDONLY equ 0
+    O_WRONLY equ 1
+    O_CREAT equ 64
+    O_TRUNC equ 512
+    Infile dd stdin
+    Outfile dd stdout
+    IntputFile_String db "-i", 0
+    OutputFile_String db "-o", 0
+
+section .bss
+    buffer resb 1
+
 section .text
 global _start
 global system_call
-extern main
+global main
+extern strlen
+extern strcmp
+extern strncmp
+
 _start:
     pop    dword ecx    ; ecx = argc
     mov    esi,esp      ; esi = argv
@@ -15,6 +39,7 @@ _start:
     push    dword ecx   ; int argc
 
     call    main        ; int main( int argc, char *argv[], char *envp[] )
+    add     esp,12      ; clean up the stack
 
     mov     ebx,eax
     mov     eax,1
@@ -38,3 +63,214 @@ system_call:
     add     esp, 4          ; Restore caller state
     pop     ebp             ; Restore caller state
     ret                     ; Back to caller
+
+main: ; int main(int argc, char *argv[])
+; Print all command-line arguments and encode input from stdin to stdout.
+    
+    mov ecx, [esp + 4]      ; get argc
+    mov esi, [esp + 8]      ; get argv
+
+    push esi                ; pass argv to print_args
+    push ecx                ; pass argc to print_args
+    call parse_args         ; parse command-line arguments
+    call print_args         ; print all command-line arguments
+    add esp, 8              ; clean arguments from the stack
+
+    ; Encode input from stdin and write to stdout
+    call encode_input
+
+    ; Exit the program
+    move eax, 0             ; return 0 (success)
+    ret
+
+parse_args: ; void parse_args(int argc, char *argv[])
+; Parse command-line arguments for -i and -o options
+
+    mov ecx, [esp + 4]     ; get argc
+    mov esi, [esp + 8]     ; get argv
+
+    parse_args_loop:
+        ; Check if there are no more arguments
+        cmp ecx, 0
+        jmp return
+
+        push ecx                ; save argc
+        push esi                ; save argv
+
+        push dword [esi]        ; push argv[i] as argument to print_arg
+        call check_i_option     ; check for -i option
+        cmp eax, 0
+        je continue
+        call check_o_option     ; check for -i option
+        
+        continue:
+            add esp, 4              ; remove the argument from the stack
+
+            pop esi                 ; restore argv
+            pop ecx                 ; restore argc
+
+        ; Move to the next argument
+        dec ecx                 ; decrement argc
+        add esi, 4              ; esi += 4 (next argument)
+        jmp parse_args_loop     ; loop
+
+
+
+
+        check_i_option:
+            push ecx            ; save argc
+            push esi            ; save argv
+
+            push [esi]          ; push argv[i] as argument to strncmp
+            push IntputFile_String ; "-i"
+            push dword 2        ; length of "-i"
+            call strncmp
+            add esp, 12         ; clean arguments from the stack
+
+            pop esi             ; restore esi
+            pop ecx             ; restore ecx
+
+            cmp eax, 0
+            jne check_o_option
+            move esi, [esi +2]             ; skip -i
+            push esi
+
+
+        cmp byte [edi], '-'
+        jne parse_args_loop
+        cmp byte [edi + 1], 'i'
+        jne check_o_option
+        add edi, 2             ; skip -i
+        push edi
+        call open_input_file
+        jmp parse_args_loop
+
+check_o_option:
+    ; Check for -o option
+    cmp byte [edi + 1], 'o'
+    jne parse_args_loop
+    add edi, 2             ; skip -o
+    push edi
+    call open_output_file
+    jmp parse_args_loop
+
+parse_args_done:
+    ret
+
+open_input_file:
+    ; Open the input file specified by -i{file}
+    pop ebx                ; get the file name
+    mov eax, sys_open      ; sys_open
+    mov ecx, O_RDONLY      ; read-only mode
+    int 0x80               ; call kernel
+    mov [Infile], eax      ; store the file descriptor in Infile
+    ret
+
+open_output_file:
+    ; Open the output file specified by -o{file}
+    pop ebx                ; get the file name
+    mov eax, sys_open      ; sys_open
+    mov ecx, O_WRONLY | O_CREAT | O_TRUNC ; write-only, create, truncate
+    mov edx, 0666          ; file permissions
+    int 0x80               ; call kernel
+    mov [Outfile], eax     ; store the file descriptor in Outfile
+    ret
+
+print_args: ; void print_args(int argc, char *argv[])
+; Print all command-line arguments.
+
+    mov ecx, [esp + 4]     ; get argc
+    mov esi, [esp + 8]     ; get argv
+
+    print_args_loop:
+        ; Check if there are no more arguments
+        cmp ecx, 0
+        jmp return
+        
+        push ecx                ; save argc
+        push esi                ; save argv
+
+        push dword [esi]        ; push argv[i] as argument to print_arg
+        call print_arg          ; print the argument
+        add esp, 4              ; remove the argument from the stack
+
+        pop esi                 ; restore esi
+        pop ecx                 ; restore ecx
+
+        ; Move to the next argument
+        dec ecx                 ; decrement argc
+        add esi, 4              ; esi += 4 (next argument)
+        jmp print_args_loop     ; loop
+
+print_arg: ; void print_arg(char *arg)
+; Print a single argument.
+
+    mov esi, [esp + 4]     ; get argv[i]
+
+    print_arg_loop:
+        ; Check if the current character is null
+        cmp byte [esi], 0
+        je print_newline
+
+        ; Print the current character
+        mov eax, sys_write      ; sys_write
+        mov ebx, stdout         ; stdout
+        mov ecx, esi            ; pointer to the character
+        mov edx, 1              ; length = 1
+        int 0x80                ; call kernel
+
+        ; Move to the next character
+        inc esi
+        jmp print_arg_loop
+
+    print_newline:
+        ; Print a newline
+        mov eax, sys_write      ; sys_write
+        mov ebx, stdout         ; stdout
+        lea ecx, [newline]      ; load pointer to newline label
+        mov edx, 1              ; length = 1
+        int 0x80                ; call kernel
+
+        ret
+
+encode_input: ; void encode_input()
+; Read from stdin and encode the input to stdout.
+
+    mov eax, sys_read       ; sys_read
+    mov ebx, [Infile]       ; stdin by default
+    lea ecx, [buffer]
+    mov edx, 1              ; length = 1
+    int 0x80                ; call kernel
+
+    ; Check if the input is null
+    cmp eax, 0
+    je return
+    mov esi, buffer
+    cmp byte [esi], 0
+    je return
+
+    ; Encode the character
+    cmp byte [ebx], 'A'
+    jb write_char
+    cmp byte [ebx], 'z'
+    ja write_char
+
+    inc byte [ebx]
+
+    write_char:
+        ; Write the encoded character to stdout
+        mov eax, sys_write      ; sys_write
+        mov edi, [Outfile]      ; stdout by default
+        mov ecx, buffer
+        mov edx, 1              ; length = 1
+        int 0x80                ; call kernel
+
+        jmp encode_input
+
+return:
+    ret
+
+exit_program:
+    mov eax, sys_exit       ; sys_exit
+    xor ebx, ebx            ; exit code 0
+    int 0x80                ; call kernel
