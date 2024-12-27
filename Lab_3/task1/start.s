@@ -95,15 +95,15 @@ parse_args: ; void parse_args(int argc, char *argv[])
         cmp ecx, 0
         je main_1
 
-        move ebx, [esi]         ; get argv[i]
+        mov ebx, [esi]         ; get argv[i]
         add esi, 4              ; esi += 4 (next argument)
         dec ecx                 ; decrement argc
 
         cmp byte [ebx], "-"            ; check if the argument starts with '-'
         jne parse_args_loop
-        move eax, sys_open      ; sys_open
+        mov eax, sys_open      ; sys_open
         
-        parse_o:
+        parse_i:
             cmp byte [ebx + 1], "i"        ; check if the argument is -i
             jne parse_o
 
@@ -138,22 +138,22 @@ print_args: ; void print_args(int argc, char *argv[])
         push esi                ; save esi
         push ecx                ; save ecx
 
-        push [esi]              ; push argv[i] as argument to strlen
+        push dword [esi]              ; push argv[i] as argument to strlen
         call strlen             ; strlen(argv[i])
         add esp, 4              ; remove the argument from the stack
 
         pop ecx                 ; restore ecx
         pop esi                 ; restore esi
 
-        move edx, eax           ; store the length of the argument in edx
-        move eax, sys_write     ; sys_write
-        move ebx, Outfile       ; Outfile (default stdout)
-        move ecx, [esi]         ; pointer to the argument
+        mov edx, eax           ; store the length of the argument in edx
+        mov eax, sys_write     ; sys_write
+        mov ebx, Outfile       ; Outfile (default stdout)
+        mov ecx, [esi]         ; pointer to the argument
         int 0x80                ; call kernel
-        move eax, sys_write     ; sys_write
-        move ebx, Outfile       ; Outfile (default stdout)
-        move ecx, newline       ; load pointer to newline label
-        move edx, 1             ; length = 1
+        mov eax, sys_write     ; sys_write
+        mov ebx, Outfile       ; Outfile (default stdout)
+        mov ecx, newline       ; load pointer to newline label
+        mov edx, 1             ; length = 1
         int 0x80                ; call kernel
 
         add esi, 4              ; esi += 4 (next argument)
