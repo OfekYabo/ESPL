@@ -22,8 +22,6 @@ global _start
 global system_call
 global main
 extern strlen
-extern strcmp
-extern strncmp
 
 _start:
     pop    dword ecx    ; ecx = argc
@@ -75,15 +73,13 @@ main: ; int main(int argc, char *argv[])
     main_1:
         pop ecx
         pop esi
-
         push esi                ; save argv
         push ecx                ; save argc
-        jmp print_args         ; print all command-line arguments
+        jmp print_args          ; print all command-line arguments
     main_2:
         pop ecx
         pop esi
         jmp encode_input
-    ; Exit the program
     main_exit:
         mov eax, 0             ; return 0 (success)
         ret
@@ -135,27 +131,25 @@ print_args: ; void print_args(int argc, char *argv[])
         cmp ecx, 0
         je main_2               
 
-        push esi                ; save esi
         push ecx                ; save ecx
-
-        push dword [esi]              ; push argv[i] as argument to strlen
+        push esi                ; save esi
+        push dword [esi]        ; push argv[i] (pointer to the string) as argument to strlen
         call strlen             ; strlen(argv[i])
         add esp, 4              ; remove the argument from the stack
-
-        pop ecx                 ; restore ecx
         pop esi                 ; restore esi
-
+        
         mov edx, eax           ; store the length of the argument in edx
         mov eax, sys_write     ; sys_write
-        mov ebx, Outfile       ; Outfile (default stdout)
+        mov ebx, [Outfile]       ; Outfile (default stdout)
         mov ecx, [esi]         ; pointer to the argument
         int 0x80                ; call kernel
         mov eax, sys_write     ; sys_write
-        mov ebx, Outfile       ; Outfile (default stdout)
+        mov ebx, [Outfile]       ; Outfile (default stdout)
         mov ecx, newline       ; load pointer to newline label
         mov edx, 1             ; length = 1
         int 0x80                ; call kernel
 
+        pop ecx                 ; restore ecx
         add esi, 4              ; esi += 4 (next argument)
         dec ecx                 ; decrement argc
         jmp print_args_loop     ; loop
@@ -187,6 +181,12 @@ encode_input: ; void encode_input()
 
         increment_char:
         inc byte [buffer]        ; increment the character
+        cmp byte [buffer], 'z'+1   ; check if the character is 'z'+1
+        je sub_26
+        cmp byte [buffer], 'Z'+1   ; check if the character is 'Z'+1
+        jne write_char
+        sub_26:
+            sub byte [buffer], 26     ; subtract 26 from the character
 
         write_char:
             ; Write the encoded character to stdout
@@ -196,3 +196,5 @@ encode_input: ; void encode_input()
             mov edx, 1              ; length = 1
             int 0x80                ; call kernel
             jmp encode_input_loop
+
+
