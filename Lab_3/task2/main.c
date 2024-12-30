@@ -52,7 +52,7 @@ int main(int argc, char *argv[], char *envp[])
     }
 
     /* Check for -v argument (verbose mode)*/
-    if (argc > 1 && argv[1][0] == '-' && argv[1][1] == 'v')
+    if (argc > 1 && argv[2][0] == '-' && argv[2][1] == 'v')
     {
         verbose = 1;
     }
