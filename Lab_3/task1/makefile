@@ -18,21 +18,3 @@ util.o: util.c
 
 clean:
 	rm -f *.o encoder
-
-
-
-# AS = nasm
-# LD = ld
-# ASFLAGS = -f elf32
-# LDFLAGS = -m elf_i386
-
-# all: encoder
-
-# encoder: start.o
-# 	$(LD) $(LDFLAGS) -o encoder start.o
-
-# start.o: start.s
-# 	$(AS) $(ASFLAGS) -o start.o start.s
-
-# clean:
-# 	rm -f *.o encoder

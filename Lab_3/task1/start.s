@@ -4,6 +4,7 @@ section .data
     sys_read equ 3
     sys_write equ 4
     sys_open equ 5
+    sys_close equ 6
     stdin equ 0
     stdout equ 1
     stderr equ 2
@@ -80,7 +81,7 @@ main: ; int main(int argc, char *argv[])
         pop ecx
         pop esi
         jmp encode_input
-    main_exit:
+    exit_program:
         mov eax, 0             ; return 0 (success)
         ret
 
@@ -118,10 +119,10 @@ parse_args: ; void parse_args(int argc, char *argv[])
             add ebx, 2              ; skip -o
             push ecx               ; save ecx
             mov ecx, O_WRONLY | O_CREAT | O_TRUNC ; write-only, create, truncate
-            mov edx, 0666          ; file permissions
+            mov edx, 0664          ; file permissions
             int 0x80               ; call kernel
             pop ecx                ; restore ecx
-            mov [Outfile], eax      ; store the file descriptor in Infile
+            mov [Outfile], eax      ; store the file descriptor in Outfile
             jmp parse_args_loop     ; loop
 
 print_args: ; void print_args(int argc, char *argv[])
@@ -198,3 +199,21 @@ encode_input: ; void encode_input()
             jmp encode_input_loop
 
 
+main_exit:
+    ; Close the input file if it is not stdin
+    mov eax, [Infile]
+    cmp eax, stdin
+    je close_output
+    mov ebx, eax
+    mov eax, sys_close
+    int 0x80
+
+    close_output:
+        ; Close the output file if it is not stdout
+        mov eax, [Outfile]
+        cmp eax, stdout
+        je exit_program
+        mov ebx, eax
+        mov eax, sys_close
+        int 0x80
+    jmp exit_program
