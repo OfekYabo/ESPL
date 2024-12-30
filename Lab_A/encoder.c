@@ -42,25 +42,25 @@ char encode(char c) { //part 2
 //my code helped by copilot
 void handle_arguments(int argc, char **argv) {
     for (int i = 1; i < argc; i++){
-        if (strcmp(argv[i], "-D") == 0){ //part 1
+        if (argv[i][0] == '-' && argv[i][1] == 'D' && argv[i][2] == '\0'){ //part 1
             debug_mode = 0;
-        } else if (strcmp(argv[i], "+D") == 0){ //part 1
+        } else if (argv[i][0] == '+' && argv[i][1] == 'D' && argv[i][2] == '\0'){ //part 1
             debug_mode = 1;
-        } else if (strncmp(argv[i], "+E", 2) == 0){ //part 2
+        } else if (argv[i][0] == '+' && argv[i][1] == 'E'){ //part 2
             encoding_key = argv[i] + 2;
             key_index = 0;
             encode_mode = encode_add;
-        } else if (strncmp(argv[i], "-E", 2) == 0){ //part 2
+        } else if (argv[i][0] == '-' && argv[i][1] == 'E'){ //part 2
             encoding_key = argv[i] + 2;
             key_index = 0;
             encode_mode = encode_subtract;
-        } else if (strncmp(argv[i], "-i", 2) == 0) { //part 3
+        } else if (argv[i][0] == '-' && argv[i][1] == 'i') { //part 3
             infile = fopen(argv[i] + 2, "r");
             if (infile == NULL) {
                 fprintf(stderr, "Error opening input file: %s\n", argv[i] + 2);
                 exit(1);
             }
-        } else if (strncmp(argv[i], "-o", 2) == 0) { //part 3
+        } else if (argv[i][0] == '-' && argv[i][1] == 'o') { //part 3
             outfile = fopen(argv[i] + 2, "w");
             if (outfile == NULL) {
                 fprintf(stderr, "Error opening output file: %s\n", argv[i] + 2);
