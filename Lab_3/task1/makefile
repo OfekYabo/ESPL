@@ -15,6 +15,9 @@ start.o: start.s
 
 util.o: util.c
 	gcc -m32 -c -o util.o util.c
+	
+run: encoder
+	./encoder -iinput.txt -ooutputfile.txt check1 check2
 
 clean:
 	rm -f *.o encoder
