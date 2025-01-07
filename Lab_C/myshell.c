@@ -11,6 +11,7 @@
 
 #define MAX_INPUT_SIZE 2048
 
+//my code, helped by copilot
 void execute(cmdLine *pCmdLine);
 
 int main(int argc, char **argv) {
@@ -31,7 +32,7 @@ int main(int argc, char **argv) {
         if (getcwd(cwd, sizeof(cwd)) != NULL) {
             printf("%s$ ", cwd);
         } else {
-            perror("getcwd() error"); //print error to stderr and the last error
+            perror("getcwd() error"); //print to stderr the last error
             return 1;
         }
         // Read user input
@@ -44,12 +45,12 @@ int main(int argc, char **argv) {
         if (parsedCmdLine == NULL) {
             continue; // If parsing fails, continue to the next iteration
         }
-        // Check for "quit" command
+        // Check "quit" command
         if (strcmp(parsedCmdLine->arguments[0], "quit") == 0) {
             freeCmdLines(parsedCmdLine);
             break; // Exit the loop and terminate the shell
         }
-        // Check for "cd" command
+        // Check "cd" command
         if (strcmp(parsedCmdLine->arguments[0], "cd") == 0) {
             if (parsedCmdLine->argCount < 2) {
                 fprintf(stderr, "cd: missing argument\n");
@@ -62,18 +63,13 @@ int main(int argc, char **argv) {
             continue; // Skip forking and continue to the next iteration
         }
 
-
-
-
-
-
         // Check for "stop" command
         if ((strcmp(parsedCmdLine->arguments[0], "stop") == 0)) {
             if (parsedCmdLine->argCount < 2) {
                 fprintf(stderr, "stop: missing argument\n");
             } else {
                 pid_t pid = atoi(parsedCmdLine->arguments[1]);
-                if (kill(pid, SIGSTOP) == -1) {
+                if (kill(pid, SIGKILL) == -1) {
                     perror("stop error");
                 }
             }
@@ -109,13 +105,7 @@ int main(int argc, char **argv) {
             continue; // Skip forking and continue to the next iteration
         }
 
-
-
-
-
-
-
-        // Fork a new process
+        // Fork a new process to execute cmd line task
         pid_t pid = fork();
         if (pid == -1) {
             perror("fork() error");
@@ -134,10 +124,8 @@ int main(int argc, char **argv) {
                 waitpid(pid, NULL, 0); // Wait for the child process to complete if blocking
             }
         }       
-
         freeCmdLines(parsedCmdLine);
     }
-
     return 0;
 }
 
@@ -147,32 +135,24 @@ void execute(cmdLine *pCmdLine) {
 
     // Handle input redirection
     if (pCmdLine->inputRedirect) {
+        close(STDIN_FILENO);//free 0
+        // Open the input file, will assign to 0
         inputFd = open(pCmdLine->inputRedirect, O_RDONLY);
         if (inputFd == -1) {
             perror("open inputRedirect error");
             _exit(1);
         }
-        if (dup2(inputFd, STDIN_FILENO) == -1) {
-            perror("dup2 inputRedirect error");
-            close(inputFd); // Ensure the file descriptor is closed
-            _exit(1);
-        }
-        close(inputFd);
     }
 
     // Handle output redirection
     if (pCmdLine->outputRedirect) {
+        close(STDOUT_FILENO);// free 1
+        // Open the output file, will assign to 1
         outputFd = open(pCmdLine->outputRedirect, O_WRONLY | O_CREAT | O_TRUNC, 0644);
         if (outputFd == -1) {
             perror("open outputRedirect error");
             _exit(1);
         }
-        if (dup2(outputFd, STDOUT_FILENO) == -1) {
-            perror("dup2 outputRedirect error");
-            close(outputFd); // Ensure the file descriptor is closed
-            _exit(1);
-        }
-        close(outputFd);
     }
 
     if (execvp(pCmdLine->arguments[0], pCmdLine->arguments) == -1) {
