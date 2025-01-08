@@ -1,0 +1,12 @@
+ErrorShell.log
+input.txt
+intermediate.txt
+LineParser.c
+LineParser.h
+LineParser.o
+makefile
+mypipeline.c
+myshell
+myshell.c
+myshell.o
+output.txt
