@@ -8,3 +8,4 @@ Executing command: ls
 PID: 501622
 Executing command: cat
 fgets() error: Inappropriate ioctl for device
+fgets() error: Success

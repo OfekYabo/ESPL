@@ -293,8 +293,14 @@ void executePipe(cmdLine *leftCmd, cmdLine *rightCmd)
         { // Parent process
             debugPrint(cpid_R, rightCmd);
             close(read_fd);
-            waitpid(cpid_L, NULL, 0);
-            waitpid(cpid_R, NULL, 0);
+            if (leftCmd->blocking)
+            {
+                waitpid(cpid_L, NULL, 0); // Wait for the first child process to complete if blocking
+            }
+            if (rightCmd->blocking)
+            {
+                waitpid(cpid_R, NULL, 0); // Wait for the second child process to complete if blocking
+            }
         }
         else
         {
