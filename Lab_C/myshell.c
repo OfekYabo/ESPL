@@ -10,17 +10,35 @@
 #include "LineParser.h"
 #include <stdbool.h>
 #define MAX_INPUT_SIZE 2048
+#define TERMINATED -1
+#define RUNNING 1
+#define SUSPENDED 0
 
 // my code, helped by copilot
 int debug;
 int read_fd;
 int write_fd;
+process* process_list = NULL;
 void execute(cmdLine *pCmdLine);
 void executeCommand(cmdLine *pCmdLine);
 void executePipe(cmdLine *leftCmd, cmdLine *rightCmd);
 void handleRedirection(cmdLine *pCmdLine);
 void debugPrint(pid_t pid, cmdLine *cmdLine);
 bool checkRedirection(cmdLine *pCmdLine);
+
+void addProcess(process** process_list, cmdLine* cmd, pid_t pid);
+void printProcessList(process** process_list);
+void freeProcessList(process* process_list);
+void updateProcessList(process **process_list);
+void updateProcessStatus(process* process_list, int pid, int status);
+
+typedef struct process
+{
+    cmdLine *cmd;         /* the parsed command line*/
+    pid_t pid;            /* the process id that is running the command*/
+    int status;           /* status of the process: RUNNING/SUSPENDED/TERMINATED */
+    struct process *next; /* next process in chain */
+} process;
 
 int main(int argc, char **argv)
 {
@@ -53,6 +71,7 @@ int main(int argc, char **argv)
                 return 1;
             }
         }
+
         // Read user input
         if (fgets(input, sizeof(input), stdin) == NULL)
         {
@@ -65,6 +84,7 @@ int main(int argc, char **argv)
         {
             continue; // If parsing fails, continue to the next iteration
         }
+
         // Check "quit" command
         if (strcmp(parsedCmdLine->arguments[0], "quit") == 0)
         {
@@ -89,59 +109,13 @@ int main(int argc, char **argv)
             continue; // Skip forking and continue to the next iteration
         }
 
-        // Check for "stop" command
-        if ((strcmp(parsedCmdLine->arguments[0], "stop") == 0))
+        // Check for process management commands
+        if (strcmp(parsedCmdLine->arguments[0], "procs") == 0 ||
+            strcmp(parsedCmdLine->arguments[0], "stop") == 0 ||
+            strcmp(parsedCmdLine->arguments[0], "term") == 0 ||
+            strcmp(parsedCmdLine->arguments[0], "wake") == 0)
         {
-            if (parsedCmdLine->argCount < 2)
-            {
-                fprintf(stderr, "stop: missing argument\n");
-            }
-            else
-            {
-                pid_t pid = atoi(parsedCmdLine->arguments[1]);
-                if (kill(pid, SIGKILL) == -1)
-                {
-                    perror("stop error");
-                }
-            }
-            freeCmdLines(parsedCmdLine);
-            continue; // Skip forking and continue to the next iteration
-        }
-
-        // Check for "wake" command
-        if (strcmp(parsedCmdLine->arguments[0], "wake") == 0)
-        {
-            if (parsedCmdLine->argCount < 2)
-            {
-                fprintf(stderr, "wake: missing argument\n");
-            }
-            else
-            {
-                pid_t pid = atoi(parsedCmdLine->arguments[1]);
-                if (kill(pid, SIGCONT) == -1)
-                {
-                    perror("wake error");
-                }
-            }
-            freeCmdLines(parsedCmdLine);
-            continue; // Skip forking and continue to the next iteration
-        }
-
-        // Check for "term" command
-        if (strcmp(parsedCmdLine->arguments[0], "term") == 0)
-        {
-            if (parsedCmdLine->argCount < 2)
-            {
-                fprintf(stderr, "term: missing argument\n");
-            }
-            else
-            {
-                pid_t pid = atoi(parsedCmdLine->arguments[1]);
-                if (kill(pid, SIGINT) == -1)
-                {
-                    perror("term error");
-                }
-            }
+            handleProcessCommand(parsedCmdLine);
             freeCmdLines(parsedCmdLine);
             continue; // Skip forking and continue to the next iteration
         }
@@ -160,12 +134,9 @@ int main(int argc, char **argv)
 
         freeCmdLines(parsedCmdLine);
     }
+    freeProcessList(process_list);
     return 0;
 }
-
-
-
-
 
 void debugPrint(pid_t pid, cmdLine *cmdLine)
 {
@@ -241,6 +212,7 @@ void executeCommand(cmdLine *pCmdLine)
     else if (pid > 0)
     { // Parent process
         debugPrint(pid, pCmdLine);
+        addProcess(&process_list, pCmdLine, pid);
         if (pCmdLine->blocking)
         {
             waitpid(pid, NULL, 0); // Wait for the child process to complete if blocking
@@ -269,7 +241,7 @@ void executePipe(cmdLine *leftCmd, cmdLine *rightCmd)
     cpid_L = fork();
 
     if (cpid_L == 0)
-    { // First child process
+    { // Left child process
         close(STDOUT_FILENO);
         dup(write_fd);
         close(write_fd);
@@ -279,11 +251,12 @@ void executePipe(cmdLine *leftCmd, cmdLine *rightCmd)
     else if (cpid_L > 0)
     { // Parent process
         debugPrint(cpid_L, leftCmd);
+        addProcess(&process_list, leftCmd, cpid_L);
         close(write_fd);
         cpid_R = fork();
 
         if (cpid_R == 0)
-        { // Second child process
+        { // Right child process
             close(STDIN_FILENO);
             dup(read_fd);
             close(read_fd);
@@ -292,6 +265,7 @@ void executePipe(cmdLine *leftCmd, cmdLine *rightCmd)
         else if (cpid_R > 0)
         { // Parent process
             debugPrint(cpid_R, rightCmd);
+            addProcess(&process_list, rightCmd, cpid_R);
             close(read_fd);
             if (leftCmd->blocking)
             {
@@ -309,8 +283,161 @@ void executePipe(cmdLine *leftCmd, cmdLine *rightCmd)
         }
     }
     else
-    { 
+    {
         perror("fork leftCmd");
         exit(EXIT_FAILURE);
     }
 }
+
+void addProcess(process** process_list, cmdLine* cmd, pid_t pid) {
+    process* new_process = (process*)malloc(sizeof(process));
+    new_process->cmd = cmd;
+    new_process->pid = pid;
+    new_process->status = RUNNING;
+    new_process->next = *process_list;
+    *process_list = new_process;
+}
+
+void printProcessList(process** process_list) {
+    updateProcessList(process_list);
+    process* current = *process_list;
+    process* prev = NULL;
+    int index = 0;
+    printf("Index\tPID\t\tStatus\t\tCommand\n");
+    while (current != NULL) {
+        printf("%d\t%d\t\t%s\t\t", index, current->pid,
+               current->status == RUNNING ? "Running" :
+               current->status == SUSPENDED ? "Suspended" : "Terminated");
+        for (int i = 0; i < current->cmd->argCount; i++) {
+            printf("%s ", current->cmd->arguments[i]);
+        }
+        printf("\n");
+
+        if (current->status == TERMINATED) {
+            if (prev == NULL) {
+                *process_list = current->next;
+                freeCmdLines(current->cmd);
+                free(current);
+                current = *process_list;
+            } else {
+                prev->next = current->next;
+                freeCmdLines(current->cmd);
+                free(current);
+                current = prev->next;
+            }
+        } else {
+            prev = current;
+            current = current->next;
+        }
+        index++;
+    }
+}
+
+void freeProcessList(process* process_list) {
+    process* current = process_list;
+    while (current != NULL) {
+        process* next = current->next;
+        freeCmdLines(current->cmd);
+        free(current);
+        current = next;
+    }
+}
+
+void updateProcessList(process **process_list) {
+    process* current = *process_list;
+    int status;
+    pid_t result;
+    while (current != NULL) {
+        result = waitpid(current->pid, &status, WNOHANG | WUNTRACED);
+        if (result == -1) {
+            perror("waitpid");
+        } else if (result > 0) {
+            if (WIFEXITED(status) || WIFSIGNALED(status)) {
+                current->status = TERMINATED;
+            } else if (WIFSTOPPED(status)) {
+                current->status = SUSPENDED;
+            } else if (WIFCONTINUED(status)) {
+                current->status = RUNNING;
+            }
+        }
+        current = current->next;
+    }
+}
+
+void updateProcessStatus(process* process_list, int pid, int status) {
+    process* current = process_list;
+    while (current != NULL) {
+        if (current->pid == pid) {
+            current->status = status;
+            break;
+        }
+        current = current->next;
+    }
+}
+
+
+void handleProcessCommand(cmdLine* parsedCmdLine) {
+    if (strcmp(parsedCmdLine->arguments[0], "procs") == 0) 
+    { // Check "procs" command
+        printProcessList(&process_list);
+    }
+    else if ((strcmp(parsedCmdLine->arguments[0], "stop") == 0))
+    { // Check for "stop" command
+        if (parsedCmdLine->argCount < 2)
+        {
+            fprintf(stderr, "stop: missing argument\n");
+        }
+        else
+        {
+            pid_t pid = atoi(parsedCmdLine->arguments[1]);
+            if (kill(pid, SIGKILL) == -1)
+            {
+                perror("stop error");
+            }
+            else 
+            {
+                updateProcessStatus(process_list, pid, SUSPENDED);
+            }
+        }
+    }
+    else if (strcmp(parsedCmdLine->arguments[0], "wake") == 0)
+    { // Check for "wake" command
+        if (parsedCmdLine->argCount < 2)
+        {
+            fprintf(stderr, "wake: missing argument\n");
+        }
+        else
+        {
+            pid_t pid = atoi(parsedCmdLine->arguments[1]);
+            if (kill(pid, SIGCONT) == -1)
+            {
+                perror("wake error");
+            }
+            else
+            {
+                updateProcessStatus(process_list, pid, RUNNING);
+            }
+        }
+    }
+    else if (strcmp(parsedCmdLine->arguments[0], "term") == 0)
+    { // Check for "term" command
+        if (parsedCmdLine->argCount < 2)
+        {
+            fprintf(stderr, "term: missing argument\n");
+        }
+        else
+        {
+            pid_t pid = atoi(parsedCmdLine->arguments[1]);
+            if (kill(pid, SIGINT) == -1)
+            {
+                perror("term error");
+            }
+            else 
+            {
+                updateProcessStatus(process_list, pid, TERMINATED);
+            }
+        }
+    }
+}
+
+
