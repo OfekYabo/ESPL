@@ -3,7 +3,7 @@
 CC = gcc
 
 # Compiler flags
-CFLAGS = -Wall -Wextra -std=c99
+CFLAGS = -Wall -Wextra -std=c99 -g -O0
 
 # Executable names
 TARGET_SHELL = myshell

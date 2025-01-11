@@ -1,14 +1,18 @@
-#include <stdio.h>
-#include <unistd.h>
+
+#define _XOPEN_SOURCE 700
 #include <linux/limits.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <stdio.h>
 #include <signal.h>
 #include <string.h>
-#include <stdlib.h>
 #include <fcntl.h>
 #include "LineParser.h"
 #include <stdbool.h>
+#include <sys/wait.h>
 #define MAX_INPUT_SIZE 2048
 #define TERMINATED -1
 #define RUNNING 1
@@ -18,19 +22,13 @@
 int debug;
 int read_fd;
 int write_fd;
-process* process_list = NULL;
 void execute(cmdLine *pCmdLine);
 void executeCommand(cmdLine *pCmdLine);
 void executePipe(cmdLine *leftCmd, cmdLine *rightCmd);
 void handleRedirection(cmdLine *pCmdLine);
+void handleProcessCommand(cmdLine* parsedCmdLine);
 void debugPrint(pid_t pid, cmdLine *cmdLine);
 bool checkRedirection(cmdLine *pCmdLine);
-
-void addProcess(process** process_list, cmdLine* cmd, pid_t pid);
-void printProcessList(process** process_list);
-void freeProcessList(process* process_list);
-void updateProcessList(process **process_list);
-void updateProcessStatus(process* process_list, int pid, int status);
 
 typedef struct process
 {
@@ -39,6 +37,16 @@ typedef struct process
     int status;           /* status of the process: RUNNING/SUSPENDED/TERMINATED */
     struct process *next; /* next process in chain */
 } process;
+
+process* process_list = NULL;
+
+void addProcess(process** process_list, cmdLine* cmd, pid_t pid);
+void printProcessList(process** process_list);
+void freeProcessList(process* process_list);
+void updateProcessList(process **process_list);
+void updateProcessStatus(process* process_list, int pid, int status);
+
+
 
 int main(int argc, char **argv)
 {
@@ -58,9 +66,9 @@ int main(int argc, char **argv)
 
     while (1)
     {
-        // Get the current working directory
         if (isatty(STDIN_FILENO))
         {
+        // Get the current working directory
             if (getcwd(cwd, sizeof(cwd)) != NULL)
             {
                 printf("%s$ ", cwd);
@@ -132,7 +140,7 @@ int main(int argc, char **argv)
             executeCommand(parsedCmdLine);
         }
 
-        freeCmdLines(parsedCmdLine);
+        // freeCmdLines(parsedCmdLine);
     }
     freeProcessList(process_list);
     return 0;
@@ -305,7 +313,7 @@ void printProcessList(process** process_list) {
     int index = 0;
     printf("Index\tPID\t\tStatus\t\tCommand\n");
     while (current != NULL) {
-        printf("%d\t%d\t\t%s\t\t", index, current->pid,
+        printf("%-6d\t%-10d\t%-10s\t", index, current->pid,
                current->status == RUNNING ? "Running" :
                current->status == SUSPENDED ? "Suspended" : "Terminated");
         for (int i = 0; i < current->cmd->argCount; i++) {
@@ -348,11 +356,14 @@ void updateProcessList(process **process_list) {
     int status;
     pid_t result;
     while (current != NULL) {
-        result = waitpid(current->pid, &status, WNOHANG | WUNTRACED);
+        result = waitpid(current->pid, &status, WNOHANG | WUNTRACED | WCONTINUED);
         if (result == -1) {
             perror("waitpid");
         } else if (result > 0) {
-            if (WIFEXITED(status) || WIFSIGNALED(status)) {
+            printf("waitpid returned: %d, status: %d\n", result, status); // Debugging print
+            if (WIFEXITED(status)) {
+                current->status = TERMINATED;
+            } else if (WIFSIGNALED(status)) {
                 current->status = TERMINATED;
             } else if (WIFSTOPPED(status)) {
                 current->status = SUSPENDED;
@@ -390,7 +401,7 @@ void handleProcessCommand(cmdLine* parsedCmdLine) {
         else
         {
             pid_t pid = atoi(parsedCmdLine->arguments[1]);
-            if (kill(pid, SIGKILL) == -1)
+            if (kill(pid, SIGTSTP) == -1)
             {
                 perror("stop error");
             }
@@ -426,7 +437,7 @@ void handleProcessCommand(cmdLine* parsedCmdLine) {
             fprintf(stderr, "term: missing argument\n");
         }
         else
-        {
+        { 
             pid_t pid = atoi(parsedCmdLine->arguments[1]);
             if (kill(pid, SIGINT) == -1)
             {
@@ -439,5 +450,3 @@ void handleProcessCommand(cmdLine* parsedCmdLine) {
         }
     }
 }
-
-
