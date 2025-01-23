@@ -31,6 +31,12 @@ $(TARGET): $(OBJS)
 run: $(TARGET)
 	./$(TARGET) $(ARGS) 2> $(LOGFILE)
 
+run1: $(TARGET)
+	./$(TARGET) -iinput.txt -ooutput +E12345 2> $(LOGFILE)
+
+run2: $(TARGET)
+	./$(TARGET) -iinput.txt -ooutput -E4321 2> $(LOGFILE)
+
 # Clean up build files and log file
 clean:
 	rm -f $(TARGET) $(OBJS) $(LOGFILE)

@@ -28,11 +28,11 @@ char encode(char c) { //part 2
     int key_value = encoding_key[key_index] - '0';
 
     if (c >= 'A' && c <= 'Z') {
-        c = (encode_mode(key_value, c - 'A') + 26) % 26 + 'A';
+        c = (encode_mode(key_value, c - 'A') + 26) % 26 + 'A'; // do the modulo operation to wrap around the alphabet
     } else if (c >= 'a' && c <= 'z') {
         c = (encode_mode(key_value, c - 'a') + 26) % 26 + 'a';
     } else if (c >= '0' && c <= '9') {
-        c = (encode_mode(key_value, c - '0') + 10) % 10 + '0';
+        c = (encode_mode(key_value, c - '0') + 10) % 10 + '0'; // do the modulo operation to wrap around the digits
     }
 
     key_index = (key_index + 1) % key_len; // Cycle through the key
