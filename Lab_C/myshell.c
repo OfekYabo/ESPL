@@ -14,6 +14,7 @@
 #include "LineParser.h"
 #include <stdbool.h>
 #include <sys/wait.h>
+#include <ctype.h>
 #define MAX_INPUT_SIZE 2048
 #define TERMINATED -1
 #define RUNNING 1
@@ -30,6 +31,12 @@ void handleRedirection(cmdLine *pCmdLine);
 void handleProcessCommand(cmdLine* parsedCmdLine);
 void debugPrint(pid_t pid, cmdLine *cmdLine);
 bool checkRedirection(cmdLine *pCmdLine);
+void addHistory(const char *command);
+void printHistory();
+void freeHistory();
+void initHistory();
+char *getHistoryCommand(int index);
+
 
 typedef struct process
 {
@@ -95,7 +102,7 @@ int main(int argc, char **argv)
                 return 1;
             }
         }
-
+        
         // Read user input
         if (fgets(input, sizeof(input), stdin) == NULL)
         {
@@ -123,15 +130,23 @@ int main(int argc, char **argv)
             strcpy(input, command); // Copy the command into input
         }
 
-        // Add command to history
-        addHistory(input);
-
         // Parse the input
         parsedCmdLine = parseCmdLines(input);
         if (parsedCmdLine == NULL)
         {
             continue; // If parsing fails, continue to the next iteration
         }
+
+        // Check "history" command
+        if (strcmp(parsedCmdLine->arguments[0], "history") == 0)
+        {
+            printHistory();
+            addHistory(input); // Add the command to history
+            freeCmdLines(parsedCmdLine);
+            continue; // Skip forking and continue to the next iteration
+        }
+
+        addHistory(input); // Add the command to history
 
         // Check "quit" command
         if (strcmp(parsedCmdLine->arguments[0], "quit") == 0)
@@ -153,14 +168,6 @@ int main(int argc, char **argv)
                     perror("cd error");
                 }
             }
-            freeCmdLines(parsedCmdLine);
-            continue; // Skip forking and continue to the next iteration
-        }
-
-        // Check "history" command
-        if (strcmp(parsedCmdLine->arguments[0], "history") == 0)
-        {
-            printHistory();
             freeCmdLines(parsedCmdLine);
             continue; // Skip forking and continue to the next iteration
         }
@@ -187,9 +194,8 @@ int main(int argc, char **argv)
         {
             executeCommand(parsedCmdLine);
         }
-
-        // freeCmdLines(parsedCmdLine);
     }
+
     freeProcessList(process_list); // Free the process list
     freeHistory(); // Free the history list
     return 0;
