@@ -1,5 +1,6 @@
 
 #define _XOPEN_SOURCE 700
+#define HISTLEN 10
 #include <linux/limits.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -40,6 +41,19 @@ typedef struct process
 
 process* process_list = NULL;
 
+typedef struct historyNode {
+    char *command;
+    struct historyNode *next;
+} historyNode;
+
+typedef struct historyList {
+    historyNode *head;
+    historyNode *tail;
+    int size;
+} historyList;
+
+historyList *history;
+
 void addProcess(process** process_list, cmdLine* cmd, pid_t pid);
 void printProcessList(process** process_list);
 void freeProcessList(process* process_list);
@@ -54,6 +68,8 @@ int main(int argc, char **argv)
     char input[MAX_INPUT_SIZE];
     cmdLine *parsedCmdLine;
     debug = 0;
+
+    initHistory(); // Initialize the history list
 
     // Check for -d flag
     for (int i = 1; i < argc; i++)
@@ -86,6 +102,30 @@ int main(int argc, char **argv)
             perror("fgets() error");
             return 1;
         }
+
+        if (input[0] == '!' && input[1] == '!')
+        { // Check "!!" command
+            char *lastCommand = getHistoryCommand(history->size);
+            if (!lastCommand)
+            {
+                continue; // Skip forking and continue to the next iteration
+            }
+            strcpy(input, lastCommand); // Copy the last command into input
+        }
+        else if (input[0] == '!' && isdigit(input[1]))
+        { // Check "!n" command
+            int index = atoi(&input[1]);
+            char *command = getHistoryCommand(index);
+            if (!command)
+            {
+                continue; // Skip forking and continue to the next iteration
+            }
+            strcpy(input, command); // Copy the command into input
+        }
+
+        // Add command to history
+        addHistory(input);
+
         // Parse the input
         parsedCmdLine = parseCmdLines(input);
         if (parsedCmdLine == NULL)
@@ -117,6 +157,14 @@ int main(int argc, char **argv)
             continue; // Skip forking and continue to the next iteration
         }
 
+        // Check "history" command
+        if (strcmp(parsedCmdLine->arguments[0], "history") == 0)
+        {
+            printHistory();
+            freeCmdLines(parsedCmdLine);
+            continue; // Skip forking and continue to the next iteration
+        }
+
         // Check for process management commands
         if (strcmp(parsedCmdLine->arguments[0], "procs") == 0 ||
             strcmp(parsedCmdLine->arguments[0], "stop") == 0 ||
@@ -142,7 +190,8 @@ int main(int argc, char **argv)
 
         // freeCmdLines(parsedCmdLine);
     }
-    freeProcessList(process_list);
+    freeProcessList(process_list); // Free the process list
+    freeHistory(); // Free the history list
     return 0;
 }
 
@@ -449,4 +498,65 @@ void handleProcessCommand(cmdLine* parsedCmdLine) {
             }
         }
     }
+}
+
+void initHistory() {
+    history = (historyList *)malloc(sizeof(historyList));
+    history->head = NULL;
+    history->tail = NULL;
+    history->size = 0;
+}
+
+void addHistory(const char *command) {
+    historyNode *newNode = (historyNode *)malloc(sizeof(historyNode));
+    newNode->command = strdup(command);
+    newNode->next = NULL;
+
+    if (history->size == HISTLEN) {
+        historyNode *temp = history->head;
+        history->head = history->head->next;
+        free(temp->command);
+        free(temp);
+        history->size--;
+    }
+
+    if (history->tail) {
+        history->tail->next = newNode;
+    } else {
+        history->head = newNode;
+    }
+    history->tail = newNode;
+    history->size++;
+}
+
+void printHistory() {
+    historyNode *current = history->head;
+    int index = 1;
+    while (current) {
+        printf("%d %s", index++, current->command);
+        current = current->next;
+    }
+}
+
+char *getHistoryCommand(int index) {
+    if (index < 1 || index > history->size) {
+        printf("Invalid history index\n");
+        return NULL;
+    }
+    historyNode *current = history->head;
+    for (int i = 1; i < index; i++) {
+        current = current->next;
+    }
+    return current->command;
+}
+
+void freeHistory() {
+    historyNode *current = history->head;
+    while (current) {
+        historyNode *next = current->next;
+        free(current->command);
+        free(current);
+        current = next;
+    }
+    free(history);
 }
