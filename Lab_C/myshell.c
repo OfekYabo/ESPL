@@ -141,7 +141,7 @@ int main(int argc, char **argv)
         if (strcmp(parsedCmdLine->arguments[0], "history") == 0)
         {
             printHistory();
-            addHistory(input); // Add the command to history
+            addHistory(input); //TODO: notice- before or after addHistory, depends on what they will ask. also if to add history to the history list
             freeCmdLines(parsedCmdLine);
             continue; // Skip forking and continue to the next iteration
         }
