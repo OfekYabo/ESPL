@@ -18,6 +18,7 @@ typedef struct
 
 int debug_mode = 0;
 int fd[MAX_FILES] = {-1, -1};
+char filenames[MAX_FILES][256] = {"", ""};
 void *map_start[MAX_FILES] = {NULL, NULL};
 size_t file_size[MAX_FILES] = {0, 0};
 
@@ -30,6 +31,7 @@ void toggle_debug_mode()
 void examine_elf_file()
 {
     char filename[256];
+    printf("\n");
     printf("Enter ELF file name: ");
     scanf("%s", filename);
 
@@ -74,6 +76,8 @@ void examine_elf_file()
                 return;
             }
 
+            strncpy(filenames[i], filename, 256);
+
             printf("Entry point: 0x%x\n", header->e_entry);
             printf("Data encoding: %d\n", header->e_ident[EI_DATA]);
             printf("Section header offset: %d\n", header->e_shoff);
@@ -82,6 +86,13 @@ void examine_elf_file()
             printf("Program header offset: %d\n", header->e_phoff);
             printf("Number of program headers: %d\n", header->e_phnum);
             printf("Size of program headers: %d\n", header->e_phentsize);
+
+            if (debug_mode)
+            {
+                printf("Debug: File size: %zu bytes\n", file_size[i]);
+                printf("Debug: File descriptor: %d\n", fd[i]);
+                printf("\n");
+            }
 
             return;
         }
@@ -92,7 +103,43 @@ void examine_elf_file()
 
 void print_section_names()
 {
-    printf("Not implemented yet\n");
+    for (int i = 0; i < MAX_FILES; i++)
+    {
+        if (fd[i] == -1)
+        {
+            printf("No ELF file is currently opened in slot %d\n", i);
+            continue;
+        }
+
+        Elf32_Ehdr *header = (Elf32_Ehdr *)map_start[i];
+        Elf32_Shdr *section_headers = (Elf32_Shdr *)(map_start[i] + header->e_shoff);
+        const char *section_str_table = (char *)(map_start[i] + section_headers[header->e_shstrndx].sh_offset);
+
+        printf("\n");
+        printf("File: %s\n", filenames[i]);
+
+        if (debug_mode)
+        {
+            printf("Debug: shstrndx: %d\n", header->e_shstrndx);
+        }
+        
+        printf("  [Nr] Name              Type            Addr     Off\n");
+
+        for (int j = 0; j < header->e_shnum; j++)
+        {
+            printf("  [%2d] %-17s %-15x %08x %06x\n",
+                   j,
+                   section_str_table + section_headers[j].sh_name,
+                   section_headers[j].sh_type,
+                   section_headers[j].sh_addr,
+                   section_headers[j].sh_offset);
+
+            if (debug_mode)
+            {
+                printf("Debug: Section %d name offset: 0x%08x\n", j, section_headers[j].sh_name);
+            }
+        }
+    }
 }
 
 void print_symbols()
@@ -139,6 +186,7 @@ MenuOption menu[] = {
 
 void display_menu()
 {
+    printf("\n");
     printf("Choose action:\n");
     for (int i = 0; menu[i].name != NULL; i++)
     {
