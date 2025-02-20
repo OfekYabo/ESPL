@@ -20,7 +20,7 @@ typedef struct
     Elf32_Ehdr *header;
     Elf32_Shdr *section_headers;
     const char *section_str_table;
-    //Elf32_Shdr *strtab;
+    // Elf32_Shdr *strtab;
     const char *sym_str_table;
 } ELFFile;
 
@@ -46,20 +46,20 @@ void extra_initialize_elf_file(ELFFile *elf_file, const char *filename)
 {
     strncpy(elf_file->filename, filename, 256); // Copy filename to struct
 
-    elf_file->section_headers = (Elf32_Shdr *)(elf_file->map_start + elf_file->header->e_shoff); // Get section headers
+    elf_file->section_headers = (Elf32_Shdr *)(elf_file->map_start + elf_file->header->e_shoff);                                     // Get section headers
     elf_file->section_str_table = (char *)(elf_file->map_start + elf_file->section_headers[elf_file->header->e_shstrndx].sh_offset); // Get section string table
 
     // Find the string table
-    //elf_file->strtab = NULL;
+    // elf_file->strtab = NULL;
     elf_file->sym_str_table = NULL;
     for (int j = 0; j < elf_file->header->e_shnum; j++)
     {
         if (elf_file->section_headers[j].sh_type == SHT_STRTAB && strcmp(elf_file->section_str_table + elf_file->section_headers[j].sh_name, ".strtab") == 0)
         {
-            Elf32_Shdr *strtab = &elf_file->section_headers[j]; // Get string table
+            Elf32_Shdr *strtab = &elf_file->section_headers[j];                          // Get string table
             elf_file->sym_str_table = (char *)(elf_file->map_start + strtab->sh_offset); // Get symbol string table
-            //elf_file->strtab = &elf_file->section_headers[j]; // Get string table
-            //elf_file->sym_str_table = (char *)(elf_file->map_start + elf_file->strtab->sh_offset); // Get symbol string table
+            // elf_file->strtab = &elf_file->section_headers[j]; // Get string table
+            // elf_file->sym_str_table = (char *)(elf_file->map_start + elf_file->strtab->sh_offset); // Get symbol string table
             break;
         }
     }
@@ -277,8 +277,126 @@ void print_symbols()
 
 void check_files_for_merge()
 {
-    printf("Not implemented yet\n");
+    if (elf_files[0].fd == -1 || elf_files[1].fd == -1)
+    {
+        printf("Error: Two ELF files must be opened and mapped.\n");
+        return;
+    }
+
+    int symtab_count1 = 0;
+    int symtab_count2 = 0;
+    ELFFile *elf_file1 = &elf_files[0];
+    Elf32_Shdr *symtab1 = NULL;
+    Elf32_Sym *symbols1 = NULL;
+    int num_symbols1 = 0;
+
+    ELFFile *elf_file2 = &elf_files[1];
+    Elf32_Shdr *symtab2 = NULL;
+    Elf32_Sym *symbols2 = NULL;
+    int num_symbols2 = 0;
+
+    ELFFile *elf_file3;
+    Elf32_Shdr *symtab3;
+    Elf32_Sym *symbols3;
+    int num_symbols3;
+
+    // Find symbol tables in each file
+    for (int j = 0; j < elf_file1->header->e_shnum; j++)
+    {
+        if (elf_file1->section_headers[j].sh_type == SHT_SYMTAB)
+        {
+            symtab_count1++;
+            symtab1 = &elf_file1->section_headers[j];
+            symbols1 = (Elf32_Sym *)(elf_file1->map_start + symtab1->sh_offset);
+            num_symbols1 = symtab1->sh_size / symtab1->sh_entsize;
+        }
+    }
+
+    for (int j = 0; j < elf_file2->header->e_shnum; j++)
+    {
+        if (elf_file2->section_headers[j].sh_type == SHT_SYMTAB)
+        {
+            symtab_count2++;
+            symtab2 = &elf_file2->section_headers[j];
+            symbols2 = (Elf32_Sym *)(elf_file2->map_start + symtab2->sh_offset);
+            num_symbols2 = symtab2->sh_size / symtab2->sh_entsize;
+        }
+    }
+
+    // Ensure each file contains exactly one symbol table
+    if (symtab_count1 != 1 || symtab_count2 != 1)
+    {
+        printf("Feature not supported: Each file must contain exactly one symbol table.\n");
+        return;
+    }
+
+    for (int i = 0; i < 2; i++)
+    {
+        for (int k = 1; k < num_symbols1; k++) // Skip the first dummy symbol
+        {
+            Elf32_Sym *sym1 = &symbols1[k];
+            const char *sym_name1 = elf_file1->sym_str_table + sym1->st_name;
+
+            // Skip section symbols
+            if (ELF32_ST_TYPE(sym1->st_info) == STT_SECTION)
+            {
+                continue;
+            }
+
+            bool found = false;
+            for (int m = 1; m < num_symbols2; m++) // Skip the first dummy symbol
+            {
+                Elf32_Sym *sym2 = &symbols2[m];
+                const char *sym_name2 = elf_file2->sym_str_table + sym2->st_name;
+
+                // Skip section symbols
+                if (ELF32_ST_TYPE(sym2->st_info) == STT_SECTION)
+                {
+                    continue;
+                }
+
+                if (strcmp(sym_name1, sym_name2) == 0)
+                {
+                    found = true;
+                    if (i == 0 && sym1->st_shndx == SHN_UNDEF && sym2->st_shndx == SHN_UNDEF)
+                    {
+                        printf("Error: Symbol %s undefined in both files.\n", sym_name1);
+                    }
+                    else if (i == 0 && sym1->st_shndx != SHN_UNDEF && sym2->st_shndx != SHN_UNDEF)
+                    {
+                        printf("Error: Symbol %s multiply defined.\n", sym_name1);
+                    }
+                    break;
+                }
+            }
+
+            if (!found && sym1->st_shndx == SHN_UNDEF)
+            {
+                printf("Error: Symbol %s undefined.\n", sym_name1);
+            }
+        }
+
+        // Flip the ELF files and symbol tables for the second iteration
+        if (i == 0)
+        {
+            elf_file3 = elf_file1;
+            symtab3 = symtab1;
+            symbols3 = symbols1;
+            num_symbols3 = num_symbols1;
+            elf_file1 = elf_file2;
+            symtab1 = symtab2;
+            symbols1 = symbols2;
+            num_symbols1 = num_symbols2;
+            elf_file2 = elf_file3;
+            symtab2 = symtab3;
+            symbols2 = symbols3;
+            num_symbols2 = num_symbols3;
+        }
+    }
 }
+
+
+
 
 void merge_elf_files()
 {
