@@ -15,54 +15,8 @@ section .text
     global main
     global print_multi
     extern printf, puts
-
-; main: ; Task 0
-;     ; Prologue
-;     push ebp
-;     mov ebp, esp
-;     pushad
-
-;     ; Get argc
-;     mov eax, [ebp+8]   ; argc
-
-;     ; Print argc
-;     push eax
-;     push fmt
-;     call printf        ; C Function call printf
-;     add esp, 8
-
-;     ; Print argv[i] using puts
-;     mov ebx, 0         ; i = 0
-
-;     print_argv_loop:
-;         ; Get argc and argv
-;         mov eax, [ebp+8]   ; argc
-;         mov ecx, [ebp+12]  ; argv
-
-;         cmp ebx, eax       ; Compare i with argc
-;         jge end_loop       ; If i >= argc, exit loop
-
-;         ; Get argv[i]
-;         mov edx, [ecx + ebx*4]
-
-;         ; Print argv[i]
-;         push ebx          ; Save ebx
-;         push edx
-;         call puts          ; C Function call puts
-;         add esp, 4
-;         pop ebx           ; Restore ebx
-
-;         ; Increment i
-;         inc ebx
-;         jmp print_argv_loop
-
-;     end_loop:
-;         ; Epilogue
-;         popad
-;         mov esp, ebp
-;         pop ebp
-;         ret
-
+    global read_multi
+    extern printf, puts, sscanf
 
 main: ; Task 1
     ; Prologue
@@ -123,6 +77,62 @@ end_print_loop:
     call puts
     add esp, 4
 
+    ; Epilogue
+    popad
+    mov esp, ebp
+    pop ebp
+    ret
+
+read_multi:
+    ; Prologue
+    push ebp
+    mov ebp, esp
+    pushad
+
+    ; Get the pointer to the struct multi
+    mov esi, [ebp+8]   ; esi = p
+    ; Get the pointer to the string
+    mov edi, [ebp+12]  ; edi = str
+
+    ; Initialize the size to 0
+    mov byte [esi], 0
+
+read_loop:
+    ; Read two characters from the string
+    lodsb
+    cmp al, 0
+    je end_read_loop
+
+    ; Convert the character to a byte
+    sub al, '0'
+    cmp al, 9
+    jbe valid_digit
+    sub al, 7
+    cmp al, 15
+    ja invalid_digit
+
+valid_digit:
+    shl al, 4
+    lodsb
+    sub al, '0'
+    cmp al, 9
+    jbe valid_digit2
+    sub al, 7
+    cmp al, 15
+    ja invalid_digit
+
+valid_digit2:
+    or al, ah
+    stosb
+    inc byte [esi]
+
+    jmp read_loop
+
+invalid_digit:
+    ; Handle invalid digit
+    jmp end_read_loop
+
+end_read_loop:
     ; Epilogue
     popad
     mov esp, ebp
