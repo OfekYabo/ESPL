@@ -198,6 +198,7 @@ end_print_loop:
     push newline
     push string_fmt
     call printf
+    call printf
     add esp, 8
 
     ; Epilogue
@@ -408,14 +409,14 @@ break4:
     clc                    ; Clear carry flag
 
 add_loop:
-    ; xor edx, edx                ; Clear edx
-    mov dl, byte [ebx + esi]    ; dl = smaller->num[esi]
-    mov dh, byte [eax + esi]    ; dh = larger->num[esi]
+    mov dl, byte [ebx]    ; dl = smaller->num[esi]
+    mov dh, byte [eax]    ; dh = larger->num[esi]
     adc dl, dh                  ; dl = smaller->num[esi] + larger->num[esi] + carry
-    mov byte [edi + esi], dl    ; result->num[esi] = eax
-    inc esi                     ; Increment index
-    cmp esi, ecx                ; Compare index with size of the larger struct
-    jl add_loop
+    mov byte [edi], dl    ; result->num[esi] = eax
+    inc edi                     ; Increment index
+    inc eax                     ; Increment index
+    inc ebx                     ; Increment index
+    loop add_loop
 
 Assume_no_final_carry:
     ; Epilogue
@@ -436,25 +437,29 @@ PRmulti:
     mov ebp, esp
     pushad
 
-    ; Get the pointer to the struct multi
-    mov edi, [ebp+8]   ; edi = p
-
     ; Generate a random size for the struct
 generate_size:
     call rand_num
     and eax, 0xFF      ; Limit the size to 255 (0xFF)
     test eax, eax
-    jz size_non_zero
+    jz generate_size
 
+    ; Get the pointer to the struct multi
+    mov edi, [ebp+8]   ; edi = p
     mov word [edi], ax ; p->size = random size
 
     ; Get the pointer to the num array
     add edi, 2         ; edi = p->num
 
     ; Generate random values for the num array
+    shl eax, 1         ; Multiply the size by 2 (size in bytes)
     mov ecx, eax       ; ecx = size
 generate_loop:
+    push edi           ; Save the pointer to the num array
+    push ecx           ; Save the loop counter
     call rand_num
+    pop ecx            ; Restore the loop counter
+    pop edi            ; Restore the pointer to the num array
     mov byte [edi], al ; p->num[i] = random value
     inc edi            ; Move to the next byte
     loop generate_loop ; Repeat for the entire size
@@ -469,11 +474,11 @@ generate_loop:
 ;--------------------------------------------------------------------
 
 
-
 rand_num:
     ; Prologue
     push ebp
     mov ebp, esp
+    sub esp, 4            ; Allocate 4 bytes on the stack for the return value
     pushad
 
     ; Load the current state
@@ -482,10 +487,19 @@ rand_num:
     ; Compute the parity of the relevant bits using the MASK
     mov bx, ax
     and bx, [MASK]
-    xor bx, bx >> 1
-    xor bx, bx >> 2
-    xor bx, bx >> 4
-    and bx, 1  ; bx now contains the parity bit
+
+    ; Calculate parity of the lower 8 bits
+    test bl, bl
+    setpo cl  ; Set CL to 1 if parity is odd (PF=0), otherwise set to 0
+
+    ; Calculate parity of the upper 8 bits
+    shr bx, 8
+    test bl, bl
+    setpo ch  ; Set CH to 1 if parity is odd (PF=0), otherwise set to 0
+
+    ; Combine the parities
+    xor cl, ch  ; XOR the parities to get the final parity in CL
+    movzx bx, cl  ; Move the final parity to BX
 
     ; Shift the state to the right and insert the parity bit at the MSB
     shr ax, 1
@@ -497,9 +511,11 @@ rand_num:
 
     ; Return the new random value in ax
     movzx eax, ax
+    mov [ebp-4], eax      ; Save the pointer to the result struct in the allocated space
 
     ; Epilogue
     popad
+    mov eax, [ebp-4]      ; Restore pointer to the result struct from the allocated space
     mov esp, ebp
     pop ebp
     ret
