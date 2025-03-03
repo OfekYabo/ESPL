@@ -1,35 +1,51 @@
 section .data
-    BUFFER_SIZE equ 600        ; Size of the input buffer
-    fmt db "argc = %d", 10, 0  ; Format string for printf
-    string_fmt db "%s", 0    ; Format string for puts
-    hex_fmt db "%04x", 0     ; Format string for printing hex bytes
-    newline db 10, 0           ; Newline character
-    leading_zero db '0'          ; Leading zero
-    input_buffer times BUFFER_SIZE db 0  ; Buffer to store input from fgets
+    BUFFER_SIZE equ 600                           ; Size of the input buffer
+    fmt db "argc = %d", 10, 0                     ; Format string for printf
+    string_fmt db "%s", 0                         ; Format string for puts
+    hex_fmt db "%04x", 0                          ; Format string for printing hex bytes
+    newline db 10, 0                              ; Newline character
+    leading_zero db '0'                           ; Leading zero
+    input_buffer times BUFFER_SIZE db 0           ; Buffer to store input from fgets
+    debug_msg_char db "Ivalid Char", 10, 0        ; Error message for invalid character
+    debug_msg_args db "Ivalid Main Args", 10, 0   ; Error message for invalid character
+
+    STATE dw 0xACE1  ; 16 bit Initial seed value (non-zero)
+    MASK dw 0xB400   ; Mask for the fibonacci 16 bit LFSR (taps at 16, 14, 13, 11)
 
     ; Initialize the global structs
-    x_struct1 dw 0
-    x_num1 times 150 dw 0
-    x_struct2 dw 0
-    x_num2 times 150 dw 0
-    ; x_struct: dw 5
-    ; x_num: dw 0x00aa, 1,2,0x0044,0x004f
+    x_struct_user dw 0
+    x_num_user times 150 dw 0
+    y_struct_user dw 0
+    y_num_user times 150 dw 0
 
-    ; ; Test structs
-    ; x_test_struct1 dw 1, 0x1111  ; Size 1, value 0x1111
-    ; x_test_struct2 dw 1, 0x2222  ; Size 1, value 0x2222
-
-    ; ; Debug message
-    ; debug_msg db "Structs are equal", 10, 0
-    debug_msg1 db "Ivalid Char", 10, 0
-
+    x_struct: dw 5
+    x_num: dw 0xaa, 1,2,0x44,0x4f
+    pad: dw 0
+    y_struct: dw 6
+    y_num: dw 0xaa, 1,2,3,0x44,0x4f
+    
 section .bss
     ; No uninitialized data
 
 section .text
     global main
-    extern printf, puts, sscanf, fgets, stdin
+    extern printf, puts, sscanf, fgets, stdin, malloc
 
+
+;--------------------------------------------------------------------
+
+
+_start:
+    mov eax, [esp]       ; argc
+    lea ebx, [esp+4]     ; argv (pointer to array of arguments)
+
+    push ebx             ; push argv
+    push eax             ; push argc
+    call main
+
+    mov eax, 1           ; exit
+    xor ebx, ebx         ; exit status
+    int 0x80
 
 main:
     ; Prologue
@@ -37,82 +53,119 @@ main:
     mov ebp, esp
     pushad
 
-    ; Get the first number from the user
-    mov esi, x_struct1
-    push esi
-    call read_multi
-    add esp, 4
+    mov eax, [ebp + 8]          ; eax <- argc
+    mov ebx, [ebp + 12]         ; ebx <- argv
 
-;     ; Test if x_struct1 is equal to x_test_struct1
-;     mov esi, x_struct1
-;     mov edi, x_test_struct1
-;     mov ecx, 2  ; Compare 2 words (size and value)
-;     repe cmpsw
-;     jne continue_program
+    cmp eax, 1
+    je default_func             ; if no args, then jump to default_func
 
-;     ; Print debug message if structs are not equal
-;     push debug_msg
-;     push string_fmt
-;     call printf
-;     add esp, 8
+    mov edx, [ebx + 4]          ; edx <- argv[1]
 
-; continue_program:
-    mov esi, x_struct1
-    push esi
-    call print_multi
-    add esp, 4
+    cmp word [edx], "-I"        ; check if the first argument is "-I"
+    je user_argument
 
-    ; mov esi, x_test_struct1
-    ; push esi
-    ; call print_multi
-    ; add esp, 4
+    cmp word [edx], "-R"        ; check if the first argument is "-R"
+    je PRNG_argument
 
-break12:
-    ; Get the second number from the user
-    mov esi, x_struct2
-    push esi
-    call read_multi
-    add esp, 4
+    jmp error_args              ; if the first argument is not "-I" or "-R"
 
-break13:
-    ; Print the second number
-    mov esi, x_struct2
-    push esi
-    call print_multi
-    add esp, 4
-
+end_main:
     ; Epilogue
     popad
     mov esp, ebp
     pop ebp
-    ret
+    ret        ;  returning to _start
 
-; main: ; Task 1
-;     ; Prologue
-;     push ebp
-;     mov ebp, esp
-;     pushad
+error_args:
+    ; Print an error message
+    push debug_msg_args
+    push string_fmt
+    call printf
+    add esp, 8
+    jmp end_main
 
-;     ; Get the pointer to the struct multi
-;     mov esi, x_struct
+default_func:
+    mov esi, x_struct
+    mov edi, y_struct
+    jmp print_add_print
 
-;     ; Call print_multi
-;     push esi
-;     call print_multi
-;     add esp, 4
+user_argument:                  ; "-I" case
+    mov esi, x_struct_user
+    push esi
+    call read_multi
+    add esp,4
+
+    mov esi, y_struct_user
+    push esi
+    call read_multi
+    add esp,4
+
+    mov esi, x_struct_user
+    mov edi, y_struct_user
+    jmp print_add_print
+
+
+PRNG_argument:                  ; "-R" case
+    mov esi, x_struct_user
+    push esi
+    call PRmulti
+    add esp,4
+
+    mov esi, y_struct_user
+    push esi
+    call PRmulti
+    add esp,4
+
+    mov esi, x_struct_user
+    mov edi, y_struct_user
+    jmp print_add_print
+
+print_add_print:
+    push edi            ; save edi
+    push esi            ; save esi
+
+    ; print x
+    push esi
+    call print_multi
+    add esp, 4
+
+    pop esi             ; restore esi
+    pop edi             ; restore edi
+
+    push edi            ; save edi
+    push esi            ; save esi
+
+    ; print y
+    push edi
+    call print_multi
+    add esp, 4
     
-;     ; Epilogue
-;     popad
-;     mov esp, ebp
-;     pop ebp
-;     ret
+    pop esi             ; restore esi
+    pop edi             ; restore edi
+    
+    ; add x and y
+    push esi
+    push edi
+    call add_multi
+    add esp, 8
+break9:
+    ; print the result
+    push eax
+    call print_multi
+    add esp, 4
+
+    jmp end_main        ; end of main
+
+
+;--------------------------------------------------------------------
+
 
 print_multi:
     ; Prologue
     push ebp
     mov ebp, esp
     pushad
-
+break5:
     ; Get the pointer to the struct multi
     mov esi, [ebp+8]   ; esi = p
     ; Get the size of the multi-precision integer
@@ -168,7 +221,7 @@ read_multi:
     push dword [stdin]
     push BUFFER_SIZE
     push esi
-    call fgets    ; fgets(input_buffer, BUFFER_SIZE, stdin)
+    call fgets
     add esp, 12        ; Clean up the stack
 
     ; Get the pointer to the struct multi
@@ -200,10 +253,8 @@ read_loop:
 
     lea esi, [input_buffer+ecx-1] ; Get the address of the next character
     mov bl, [esi]               ; Read character from the string
-break2:
     ; Convert the character to a byte
     sub bl, '0'        ; Convert ASCII character to numeric value
-break3:
     cmp bl, 9          ; Compare with 9
     jbe valid_digit1   ; Jump if bl <= 9
     sub bl, 39          ; Adjust for hexadecimal digits 'A'-'F'
@@ -217,9 +268,7 @@ valid_digit1:
     lea esi, [input_buffer+ecx]     ; Get the address of the current character
     xor ebx, ebx ; Clear ebx
     mov bl, [esi]
-break6:
     sub bl, '0'
-break7:
     cmp bl, 9
     jbe valid_digit2
     sub bl, 39
@@ -236,7 +285,7 @@ valid_digit2:
 
 invalid_digit:
     ; Handle invalid digit
-    push debug_msg1
+    push debug_msg_char
     push string_fmt
     call printf     ; Print an error message
     add esp, 8
@@ -266,3 +315,195 @@ end_put_zero:
     mov esp, ebp
     pop ebp
     ret
+
+
+;--------------------------------------------------------------------
+
+
+get_max_min:
+    ; Prologue
+    push ebp
+    mov ebp, esp
+    sub esp, 8            ; Allocate 8 bytes on the stack for the return value
+    pushad
+
+    ; Load the size fields of the two structs
+    mov esi, [ebp+8]   ; esi = p (first struct)
+    mov edi, [ebp+12]  ; edi = q (second struct)
+    mov ax, word [esi]  ; eax = p->size
+    mov bx, word [edi]  ; ebx = q->size
+
+    ; Compare the sizes
+    cmp ax, bx
+    jge p_is_larger_or_equal
+
+    ; If q is larger, swap esi and edi
+    xchg esi, edi
+
+p_is_larger_or_equal:
+    ; Set the pointers in eax and ebx
+    mov eax, esi  ; eax = pointer to the larger struct
+    mov ebx, edi  ; ebx = pointer to the smaller struct
+    mov [ebp-4], eax  ; Save the pointer to the larger struct in the allocated space
+    mov [ebp-8], ebx  ; Save the pointer to the smaller struct in the allocated space
+
+    ; Epilogue
+    popad
+    mov eax, [ebp-4]  ; Restore pointer to the larger struct from the allocated space
+    mov ebx, [ebp-8]  ; Restore pointer to the smaller struct from the allocated space
+    mov esp, ebp
+    pop ebp
+    ret
+
+
+;--------------------------------------------------------------------
+
+
+add_multi:
+    ; Prologue
+    push ebp
+    mov ebp, esp
+    sub esp, 4            ; Allocate 4 bytes on the stack for the return value
+    pushad
+
+    ; Get pointers to the structs
+    mov eax, [ebp+8]   ; eax = p (first struct)
+    mov ebx, [ebp+12]  ; ebx = q (second struct)
+break1:
+    ; Get the larger and smaller structs
+    push ebx           
+    push eax
+    call get_max_min
+    add esp, 8         ; Clean up the stack
+    ; eax = pointer to the larger struct
+    ; ebx = pointer to the smaller struct
+break2:
+    ; Allocate memory for the result struct
+    movzx ecx, word [eax]  ; ecx = size of the larger struct
+    inc ecx                ; Increment size for the carry
+    shl ecx, 1             ; Multiply by 2 (size in bytes)
+    push ebx               ; Save smaller struct
+    push eax               ; Save larger struct
+    push ecx
+    call malloc
+    add esp, 4
+    mov edi, eax           ; edi = pointer to the result struct
+    pop eax                ; Restore eax (ponter to larger struct)
+    pop ebx                ; Restore ebx (pointer to smaller struct)
+    mov [ebp-4], edi      ; Save the pointer to the result struct in the allocated space
+
+    ; Initialize the result struct
+    movzx ecx, word [eax]  ; ecx = size of the larger struct
+    mov word [edi], cx     ; result->size = size of the larger struct + 1
+
+break3:
+    shl ecx, 1             ; Multiply by 2 (size in bytes)
+    add edi, 2             ; edi = result->num
+    add eax, 2             ; eax = larger->num
+    add ebx, 2             ; ebx = smaller->num
+break4:
+
+    ; Perform byte-wise addition
+    xor esi, esi           ; esi = index = 0
+    clc                    ; Clear carry flag
+
+add_loop:
+    ; xor edx, edx                ; Clear edx
+    mov dl, byte [ebx + esi]    ; dl = smaller->num[esi]
+    mov dh, byte [eax + esi]    ; dh = larger->num[esi]
+    adc dl, dh                  ; dl = smaller->num[esi] + larger->num[esi] + carry
+    mov byte [edi + esi], dl    ; result->num[esi] = eax
+    inc esi                     ; Increment index
+    cmp esi, ecx                ; Compare index with size of the larger struct
+    jl add_loop
+
+Assume_no_final_carry:
+    ; Epilogue
+    popad
+    mov eax, [ebp-4]      ; Restore pointer to the result struct from the allocated space
+break8:
+    mov esp, ebp
+    pop ebp
+    ret
+
+
+;--------------------------------------------------------------------
+
+
+PRmulti:
+    ; Prologue
+    push ebp
+    mov ebp, esp
+    pushad
+
+    ; Get the pointer to the struct multi
+    mov edi, [ebp+8]   ; edi = p
+
+    ; Generate a random size for the struct
+generate_size:
+    call rand_num
+    and eax, 0xFF      ; Limit the size to 255 (0xFF)
+    test eax, eax
+    jz size_non_zero
+
+    mov word [edi], ax ; p->size = random size
+
+    ; Get the pointer to the num array
+    add edi, 2         ; edi = p->num
+
+    ; Generate random values for the num array
+    mov ecx, eax       ; ecx = size
+generate_loop:
+    call rand_num
+    mov byte [edi], al ; p->num[i] = random value
+    inc edi            ; Move to the next byte
+    loop generate_loop ; Repeat for the entire size
+
+    ; Epilogue
+    popad
+    mov esp, ebp
+    pop ebp
+    ret
+
+
+;--------------------------------------------------------------------
+
+
+
+rand_num:
+    ; Prologue
+    push ebp
+    mov ebp, esp
+    pushad
+
+    ; Load the current state
+    mov ax, [STATE]
+
+    ; Compute the parity of the relevant bits using the MASK
+    mov bx, ax
+    and bx, [MASK]
+    xor bx, bx >> 1
+    xor bx, bx >> 2
+    xor bx, bx >> 4
+    and bx, 1  ; bx now contains the parity bit
+
+    ; Shift the state to the right and insert the parity bit at the MSB
+    shr ax, 1
+    shl bx, 15
+    or ax, bx
+
+    ; Update the state
+    mov [STATE], ax
+
+    ; Return the new random value in ax
+    movzx eax, ax
+
+    ; Epilogue
+    popad
+    mov esp, ebp
+    pop ebp
+    ret
+
+
+
+
